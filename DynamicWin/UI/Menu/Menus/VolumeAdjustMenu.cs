@@ -65,7 +65,7 @@ namespace DynamicWin.UI.Menu.Menus
             volumeImage.Anchor.X = 0;
             objects.Add(volumeImage);
 
-            muteText = new DWText(island, "Silent", new Vec2(-15, 0), UIAlignment.MiddleRight);
+            muteText = new DWText(island, L.T("Silent", "Sessiz"), new Vec2(-15, 0), UIAlignment.MiddleRight);
             muteText.Anchor.X = 1;
             muteText.TextSize = 15;
             muteText.Font = Res.InterBold;

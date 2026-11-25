@@ -39,16 +39,30 @@ namespace DynamicWin.UI.Menu.Menus
             songLocalPosXAddition = -45;
         }
 
+        // Müzik çalarken adanın kenarı albüm kapağının rengiyle hafifçe parlar (yol haritası #6).
+        public override Col IslandBorderColor()
+        {
+            return MediaSession.IsPlaying ? MediaSession.AccentColor.Override(a: 0.9f) : Col.Transparent;
+        }
+
+        const float EmptyIslandWidth = 120f;
+        const float EmptyIslandHeight = 30f;
+        const float MinIslandWidth = 160f;
+
         public override Vec2 IslandSize()
         {
-            Vec2 size = new Vec2(200, 35);
+            // Sadece şu an görünen (genişliği 0 olmayan) küçük widget'lar hesaba katılır. Claude, kamera/mikrofon
+            // gibi widget'lar boştayken 0 genişliğe iner; hiçbiri görünmüyorsa ada iPhone'daki gibi küçük bir hap olur.
+            var visible = smallLeftWidgets.Concat(smallRightWidgets).Concat(smallCenterWidgets)
+                .Where(x => x.GetWidgetSize().X > 0.5f).ToList();
 
-            float sizeTogether = 0f;
-            smallLeftWidgets.ForEach(x => sizeTogether += x.GetWidgetSize().X);
-            smallRightWidgets.ForEach(x => sizeTogether += x.GetWidgetSize().X);
-            smallCenterWidgets.ForEach(x => sizeTogether += x.GetWidgetSize().X);
+            if (visible.Count == 0)
+                return new Vec2(EmptyIslandWidth, EmptyIslandHeight) + new Vec2(songSizeAddition, 0);
 
-            sizeTogether += smallWidgetsSpacing * (smallCenterWidgets.Count + smallLeftWidgets.Count + smallRightWidgets.Count + 0.25f) + middleWidgetsSpacing;
+            Vec2 size = new Vec2(MinIslandWidth, 35);
+
+            float sizeTogether = visible.Sum(x => x.GetWidgetSize().X);
+            sizeTogether += smallWidgetsSpacing * (visible.Count + 0.25f) + middleWidgetsSpacing;
 
             size.X = (float)Math.Max(size.X, sizeTogether) + songSizeAddition;
 
@@ -57,45 +71,96 @@ namespace DynamicWin.UI.Menu.Menus
 
         public override Vec2 IslandSizeBig()
         {
-            Vec2 size = new Vec2(275, 145);
-
-            {
-                float sizeTogetherBiggest = 0f;
-                float sizeTogether = 0f;
-
-                for (int i = 0; i < bigWidgets.Count; i++)
-                {
-                    sizeTogether += bigWidgets[i].GetWidgetSize().X + bigWidgetsSpacing * 2;
-                    if ((i) % maxBigWidgetInOneRow == 1)
-                    {
-                        sizeTogetherBiggest = (float)Math.Max(sizeTogetherBiggest, sizeTogether);
-                        sizeTogether = 0f;
-                    }
-                }
-
-                size.X = (float)Math.Max(size.X, sizeTogetherBiggest);
-            }
-
-            {
-                float sizeTogetherBiggest = 0f;
-
-                for (int i = 0; i < bigWidgets.Count; i++)
-                {
-                    if ((i) % maxBigWidgetInOneRow == 0)
-                    {
-                        sizeTogetherBiggest += bigWidgets[i].GetWidgetSize().Y;
-                    }
-                }
-
-                sizeTogetherBiggest += bCD + (bigWidgetsSpacing * (int)Math.Floor((float)(bigWidgets.Count / maxBigWidgetInOneRow))) + topSpacing;
-
-                // Set the container height to the total height of all rows
-                size.Y = Math.Max(size.Y, sizeTogetherBiggest + topSpacing);
-            }
-
+            // Yeni yerleşim: üstte büyük medya kartları, altta küçük widget kutuları, seçili kutunun tam hali en altta.
+            var content = LayoutBig(apply: false);
+            var size = new Vec2(content.X + LayoutPad * 2, content.Y + 75);
             if (!isWidgetMode) size.Y = 250;
-
             return size;
+        }
+
+        // ---- Genişletilmiş ada yerleşimi ----
+        const float LayoutPad = 15f;
+        const float CardGap = 12f;
+        const float TileH = 30f;
+        const float TileGap = 8f;
+        const float ContentMinW = 412f;   // iki medya kartı (2 x 200) + aralık
+        const int TilesPerRow = 4;
+
+        List<WidgetTile> tiles = new List<WidgetTile>();
+        WidgetTile? focusedTile;
+
+        void OnTileClicked(WidgetTile tile)
+        {
+            focusedTile = focusedTile == tile ? null : tile;
+            tiles.ForEach(t => t.Selected = t == focusedTile);
+        }
+
+        /// <summary>
+        /// İçeriği yukarıdan aşağı dizer ve (apply ise) nesneleri yerleştirir. bigWidgetsContainer adanın ortasında
+        /// ve adadan 50 px kısa; içerik onun 25 px altından başlar. Döndürdüğü değer içerik genişliği x yüksekliği.
+        /// </summary>
+        Vec2 LayoutBig(bool apply, float containerH = 0)
+        {
+            var featured = bigWidgets.Where(w => w.IsFeatured).ToList();
+            var focused = focusedTile?.Widget;
+
+            float W = ContentMinW;
+            for (int i = 0; i < featured.Count; i += 2)
+            {
+                var row = featured.Skip(i).Take(2).ToList();
+                W = Math.Max(W, row.Sum(w => w.GetWidgetSize().X) + CardGap * (row.Count - 1));
+            }
+            if (focused != null) W = Math.Max(W, focused.GetWidgetSize().X);
+
+            float tileW = (W - TileGap * (TilesPerRow - 1)) / TilesPerRow;
+            float y = 25f;
+            float trailing = 0f; // son bölümün sonuna eklenen boşluk; sonda geri alınır
+
+            void Place(UIObject o, float cx, float top, float h)
+            {
+                if (!apply) return;
+                o.Anchor = new Vec2(0.5f, 1f);
+                o.LocalPosition = new Vec2(cx, top + h - containerH);
+            }
+
+            for (int i = 0; i < featured.Count; i += 2)
+            {
+                var row = featured.Skip(i).Take(2).ToList();
+                float rowW = row.Sum(w => w.GetWidgetSize().X) + CardGap * (row.Count - 1);
+                float x = -rowW / 2, rowH = row.Max(w => w.GetWidgetSize().Y);
+                foreach (var w in row)
+                {
+                    var sz = w.GetWidgetSize();
+                    Place(w, x + sz.X / 2, y, sz.Y);
+                    x += sz.X + CardGap;
+                }
+                y += rowH + CardGap; trailing = CardGap;
+            }
+
+            for (int i = 0; i < tiles.Count; i += TilesPerRow)
+            {
+                var row = tiles.Skip(i).Take(TilesPerRow).ToList();
+                float rowW = row.Count * tileW + (row.Count - 1) * TileGap;
+                float x = -rowW / 2;
+                foreach (var t in row)
+                {
+                    if (apply) t.Size = new Vec2(tileW, TileH);
+                    Place(t, x + tileW / 2, y, TileH);
+                    x += tileW + TileGap;
+                }
+                y += TileH + TileGap; trailing = TileGap;
+            }
+
+            if (focused != null)
+            {
+                y += CardGap - trailing;
+                var sz = focused.GetWidgetSize();
+                Place(focused, 0, y, sz.Y);
+                y += sz.Y + CardGap; trailing = CardGap;
+            }
+
+            y -= trailing;
+            return new Vec2(W, Math.Max(y - 25f, 40f));
         }
 
         UIObject smallWidgetsContainer;
@@ -140,7 +205,7 @@ namespace DynamicWin.UI.Menu.Menus
             objects.Add(next);
             objects.Add(previous);
 
-            widgetButton = new DWTextImageButton(topContainer, Resources.Res.Widgets, "Widgets", new Vec2(75 / 2 + 5, 0), new Vec2(75, 20), () =>
+            widgetButton = new DWTextImageButton(topContainer, Resources.Res.Widgets, L.T("Widgets", "Widget'lar"), new Vec2(75 / 2 + 5, 0), new Vec2(75, 20), () =>
             {
                 isWidgetMode = true;
             },
@@ -155,7 +220,7 @@ namespace DynamicWin.UI.Menu.Menus
 
             bigMenuItems.Add(widgetButton);
 
-            trayButton = new DWTextImageButton(topContainer, Resources.Res.Tray, "Tray", new Vec2(112.5f, 0), new Vec2(57.5f, 20), () =>
+            trayButton = new DWTextImageButton(topContainer, Resources.Res.Tray, "Tray", new Vec2(124f, 0), new Vec2(57.5f, 20), () =>
             {
                 isWidgetMode = false;
             },
@@ -260,6 +325,15 @@ namespace DynamicWin.UI.Menu.Menus
                 x.SilentSetActive(false);
             });
 
+            // Büyük gösterilmeyen widget'lar için küçük kutular (ikon + isim); tıklanınca tam hali açılır.
+            foreach (var w in bigWidgets.Where(w => !w.IsFeatured))
+            {
+                var tile = new WidgetTile(bigWidgetsContainer, w, OnTileClicked);
+                tile.SilentSetActive(false);
+                tiles.Add(tile);
+                objects.Add(tile);
+            }
+
             // Add lists
 
             bigMenuItems.ForEach(x =>
@@ -320,7 +394,10 @@ namespace DynamicWin.UI.Menu.Menus
             // Enable / Disable big widgets / Tray
 
             tray.SetActive(RendererMain.Instance.MainIsland.IsHovering && !isWidgetMode);
-            bigWidgets.ForEach(x => x.SetActive(RendererMain.Instance.MainIsland.IsHovering && isWidgetMode));
+            bool showWidgets = RendererMain.Instance.MainIsland.IsHovering && isWidgetMode;
+            if (!RendererMain.Instance.MainIsland.IsHovering && focusedTile != null) OnTileClicked(focusedTile); // ada küçülünce seçimi sıfırla
+            bigWidgets.ForEach(x => x.SetActive(showWidgets && (x.IsFeatured || focusedTile?.Widget == x)));
+            tiles.ForEach(t => t.SetActive(showWidgets));
             bigMenuItems.ForEach(x =>
             {
                 if(!(x is Tray))
@@ -410,32 +487,8 @@ namespace DynamicWin.UI.Menu.Menus
                 bigContainerSize -= bCD;
                 bigWidgetsContainer.Size = bigContainerSize;
 
-                { // Big Widgets
-
-                    List<WidgetBase> widgetsInOneLine = new List<WidgetBase>();
-
-                    float lastBiggestY = 0f;
-
-                    for(int i = 0; i < bigWidgets.Count; i++)
-                    {
-                        int line = i / maxBigWidgetInOneRow; // Correct line calculation
-
-                        widgetsInOneLine.Add(bigWidgets[i]);
-                        bigWidgets[i].Anchor.Y = 1;
-                        bigWidgets[i].Anchor.X = 0.5f;
-                        lastBiggestY = (float)Math.Max(lastBiggestY, bigWidgets[i].GetWidgetSize().Y);
-
-                        bigWidgets[i].LocalPosition.Y = -line * (lastBiggestY + bigWidgetsSpacing);
-
-                        if ((i) % maxBigWidgetInOneRow == 1)
-                        {
-                            lastBiggestY = 0f;
-                            CenterWidgets(widgetsInOneLine, bigWidgetsContainer);
-                            widgetsInOneLine.Clear();
-                            line++;
-                        }
-                    }
-                }
+                // Önce boyutu hesapla, sonra konteynerin gerçek yüksekliğine göre yerleştir.
+                LayoutBig(apply: true, containerH: bigContainerSize.Y);
             }
 
             cycle++;

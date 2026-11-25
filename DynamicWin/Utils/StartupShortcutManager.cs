@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using IWshRuntimeLibrary;
 
 namespace DynamicWin.Utils
 {
@@ -24,16 +23,15 @@ namespace DynamicWin.Utils
             string appPath = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
             string shortcutPath = GetShortcutPath(appPath);
 
-            if (System.IO.File.Exists(shortcutPath))
-            {
-                Console.WriteLine("Shortcut already exists.");
-                return;
-            }
-
+            // Kısayol varsa bile yeniden yaz: derleme çıktı klasörü değişince (ör. hedef platform
+            // güncellemesi) eski kısayol artık olmayan bir exe'yi gösterir.
             string exePath = Process.GetCurrentProcess().MainModule.FileName;
 
-            WshShell wshShell = new WshShell();
-            IWshShortcut shortcut = (IWshShortcut)wshShell.CreateShortcut(shortcutPath);
+            // WScript.Shell geç bağlama (late binding) ile kullanılıyor; COMReference
+            // .NET SDK'nın dotnet build'inde desteklenmediği için kaldırıldı.
+            Type shellType = Type.GetTypeFromProgID("WScript.Shell")!;
+            dynamic wshShell = Activator.CreateInstance(shellType)!;
+            dynamic shortcut = wshShell.CreateShortcut(shortcutPath);
             shortcut.TargetPath = exePath;
             shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
             shortcut.Description = "Launches the app on system startup.";

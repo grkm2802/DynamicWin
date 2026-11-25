@@ -95,7 +95,9 @@ namespace DynamicWin.UI.UIElements
 
             if (!hidden)
             {
-                paint.ImageFilter = SKImageFilter.CreateDropShadow(1, 1, dropShadowSize, dropShadowSize, new Col(0, 0, 0).Override(a: dropShadowStrength).Value());
+                // Gölge: ImageFilter.DropShadow her karede adanın tüm alanını CPU'da bulanıklaştırıyordu (genişlemiş
+                // adada kare başına birkaç ms). MaskFilter blur yuvarlak dikdörtgen için analitik hızlı yolu kullanır.
+                DrawCachedShadow(canvas, GetRect(), dropShadowSize, dropShadowStrength);
             }
 
             // Border
@@ -151,6 +153,74 @@ namespace DynamicWin.UI.UIElements
             }
 
             canvas.DrawRoundRect(GetRect(), paint);
+
+            if (Settings.IslandStyle == 1) DrawGlass(canvas);
+        }
+
+        // ---- Gölge önbelleği ----
+        // Genişlemiş adada 35 px'lik bulanık gölgeyi her karede hesaplamak kare başına ~2 ms tutuyordu.
+        // Gölge, boyut 8 px adımlarına yuvarlanarak bir kez görüntüye çizilir ve sonra sadece kopyalanır.
+        static readonly Dictionary<(int w, int h, int r, int s, int dpi), SKImage> shadowCache = new();
+
+        static void DrawCachedShadow(SKCanvas canvas, SKRoundRect rect, float sigma, float strength)
+        {
+            if (strength <= 0.01f) return;
+            var rr = rect.Rect;
+            int qw = (int)Math.Round(rr.Width / 8) * 8, qh = (int)Math.Round(rr.Height / 8) * 8;
+            int qs = Math.Max(1, (int)Math.Round(sigma / 5) * 5);
+            int qr = (int)Math.Round(rect.Radii[0].X);
+            float scale = Math.Abs(canvas.TotalMatrix.ScaleX);
+            int dpi = (int)Math.Round(scale * 100);
+            if (qw <= 0 || qh <= 0) return;
+
+            var key = (qw, qh, qr, qs, dpi);
+            if (!shadowCache.TryGetValue(key, out var img))
+            {
+                if (shadowCache.Count > 12) { foreach (var v in shadowCache.Values) v.Dispose(); shadowCache.Clear(); }
+                float pad = qs * 3;
+                int pw = (int)Math.Ceiling((qw + pad * 2) * scale), ph = (int)Math.Ceiling((qh + pad * 2) * scale);
+                using var surface = SKSurface.Create(new SKImageInfo(pw, ph, SKColorType.Bgra8888, SKAlphaType.Premul));
+                var c = surface.Canvas;
+                c.Clear(SKColors.Transparent);
+                c.Scale(scale);
+                using var p = new SKPaint { IsAntialias = true, Color = SKColors.Black, MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, qs) };
+                c.DrawRoundRect(SKRect.Create(pad, pad, qw, qh), qr, qr, p);
+                img = surface.Snapshot();
+                shadowCache[key] = img;
+            }
+
+            float padD = qs * 3;
+            var dest = SKRect.Create(rr.MidX - qw / 2f - padD + 1, rr.MidY - qh / 2f - padD + 1, qw + padD * 2, qh + padD * 2);
+            using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)(255 * Math.Clamp(strength, 0, 1))), FilterQuality = SKFilterQuality.Low };
+            canvas.DrawImage(img, dest, paint);
+        }
+
+        /// <summary>
+        /// Cam görünümü (#17). Pencere şeffaf olduğu için arkadaki masaüstü görünür; gerçek bulanıklık
+        /// (Acrylic) layered pencerede mümkün değil, bu yüzden yarı saydam koyu dolgu + üstten parlama
+        /// + ince açık kenar ile cam hissi verilir. Arka plan rengi bu modda Theme'de yarı saydam yapılır.
+        /// </summary>
+        void DrawGlass(SKCanvas canvas)
+        {
+            var r = GetRect();
+            using var p = new SKPaint { IsAntialias = true };
+
+            // Üst yarıda yumuşak beyaz parlama
+            p.Shader = SKShader.CreateLinearGradient(
+                new SKPoint(r.Rect.Left, r.Rect.Top), new SKPoint(r.Rect.Left, r.Rect.Top + Math.Min(r.Rect.Height, 60)),
+                new[] { new SKColor(255, 255, 255, 38), new SKColor(255, 255, 255, 0) }, SKShaderTileMode.Clamp);
+            canvas.DrawRoundRect(r, p);
+            p.Shader = null;
+
+            // İnce açık kenar (üstte daha parlak)
+            p.IsStroke = true;
+            p.StrokeWidth = 1f;
+            p.Shader = SKShader.CreateLinearGradient(
+                new SKPoint(r.Rect.Left, r.Rect.Top), new SKPoint(r.Rect.Left, r.Rect.Bottom),
+                new[] { new SKColor(255, 255, 255, 70), new SKColor(255, 255, 255, 18) }, SKShaderTileMode.Clamp);
+            var inner = new SKRoundRect(r.Rect, r.Radii[0].X, r.Radii[0].Y);
+            inner.Deflate(0.5f, 0.5f);
+            canvas.DrawRoundRect(inner, p);
         }
 
         public override SKRoundRect GetInteractionRect()

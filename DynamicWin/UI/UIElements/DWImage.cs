@@ -35,34 +35,26 @@ namespace DynamicWin.UI.UIElements
 
             if (allowIconThemeColor)
             {
-                var imageFilter = SKImageFilter.CreateBlendMode(SKBlendMode.DstIn,
-                        SKImageFilter.CreateColorFilter(SKColorFilter.CreateBlendMode(Color.Value(), SKBlendMode.Multiply)));
-
-                if (GetBlur() != 0f)
-                {
-                    var blur = SKImageFilter.CreateBlur(GetBlur(), GetBlur());
-
-                    if (blur != null && imageFilter != null)
-                    {
-                        var composedFilter = SKImageFilter.CreateCompose(blur, imageFilter);
-                        paint.ImageFilter = composedFilter;
-                    }
-                }
-                else
-                    paint.ImageFilter = imageFilter;
+                // İkonu tema rengiyle boya. Eskiden ImageFilter (BlendMode + ColorFilter) kullanılıyordu; ImageFilter her
+                // çizimde ekran dışı katman açtığı için pahalıydı. ColorFilter aynı sonucu (renk x ikon, alfa korunur) katmansız verir.
+                paint.ColorFilter = SKColorFilter.CreateBlendMode(Color.Value(), SKBlendMode.Modulate);
+                // Bulanıklık sadece menü geçişlerinde (GetPaint zaten ImageFilter blur koyuyor).
             }
+
+            paint.FilterQuality = SKFilterQuality.Low; // önbellekteki görüntü zaten hedef boyutta
+            var dest = SKRect.Create(Position.X, Position.Y, Size.X, Size.Y);
+            var scaled = Gfx.Scaled(canvas, image, dest);
 
             if (maskOwnRect)
             {
                 int save = canvas.Save();
                 canvas.ClipRoundRect(GetRect(), antialias: true);
-
-                canvas.DrawBitmap(image, SKRect.Create(Position.X, Position.Y, Size.X, Size.Y), paint);
+                canvas.DrawImage(scaled, dest, paint);
                 canvas.RestoreToCount(save);
             }
             else
             {
-                canvas.DrawBitmap(image, SKRect.Create(Position.X, Position.Y, Size.X, Size.Y), paint);
+                canvas.DrawImage(scaled, dest, paint);
             }
         }
     }

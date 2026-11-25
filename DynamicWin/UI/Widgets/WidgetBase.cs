@@ -39,6 +39,14 @@ namespace DynamicWin.UI.Widgets
 
         public Vec2 GetWidgetSize() { return new Vec2(GetWidgetWidth(), GetWidgetHeight()); }
 
+        // Genişletilmiş adada: "featured" widget'lar (Spotify, YouTube) tam boy gösterilir; diğerleri
+        // sadece ikon + isimden oluşan küçük kutu (WidgetTile) olur, tıklanınca tam hali açılır.
+        public virtual bool IsFeatured => false;
+        public virtual string TileTitle => GetType().Name.Replace("Widget", "");
+        public virtual string TileGlyph => "";
+        /// <summary>Kutuda isim yanında gösterilecek kısa canlı bilgi (ör. Pomodoro süresi). Boş olabilir.</summary>
+        public virtual string TileStatus => "";
+
         protected virtual float GetWidgetHeight() { return 100; }
         protected virtual float GetWidgetWidth() { return 200; }
 
@@ -57,13 +65,13 @@ namespace DynamicWin.UI.Widgets
 
             var ctx = new System.Windows.Controls.ContextMenu();
 
-            MenuItem remove = new MenuItem() { Header = "Remove" };
+            MenuItem remove = new MenuItem() { Header = L.T("Remove", "Kaldır") };
             remove.Click += (x, y) => onEditRemoveWidget?.Invoke();
 
-            MenuItem pL = new MenuItem() { Header = "<- Push Left" };
+            MenuItem pL = new MenuItem() { Header = L.T("<- Push Left", "<- Sola taşı") };
             pL.Click += (x, y) => onEditMoveWidgetLeft?.Invoke();
 
-            MenuItem pR = new MenuItem() { Header = "Push Right ->" };
+            MenuItem pR = new MenuItem() { Header = L.T("Push Right ->", "Sağa taşı ->") };
             pR.Click += (x, y) => onEditMoveWidgetRight?.Invoke();
             
             ctx.Items.Add(remove);
@@ -84,7 +92,9 @@ namespace DynamicWin.UI.Widgets
             if(hoverProgress > 0.025f)
             {
                 var paint = GetPaint();
-                paint.ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 0, hoverProgress * 10, hoverProgress * 10, Theme.WidgetBackground.Override(a: hoverProgress / 10).Value());
+                paint.ImageFilter = null;
+                paint.Color = Theme.WidgetBackground.Override(a: hoverProgress / 10).Value();
+                paint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(0.5f, hoverProgress * 10)); // DropShadowOnly yerine (ucuz)
 
                 int ogC = canvas.Save();
 

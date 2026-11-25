@@ -24,7 +24,27 @@ namespace DynamicWin.Main
         private List<UIObject> objects => MenuManager.Instance.ActiveMenu.UiObjects;
 
         public static Vec2 ScreenDimensions => new Vec2(MainForm.Instance.Width, MainForm.Instance.Height);
-        public static Vec2 CursorPosition => new Vec2(Mouse.GetPosition(MainForm.Instance).X, Mouse.GetPosition(MainForm.Instance).Y);
+        // Fare konumu doğrudan Win32'den okunur. WPF Mouse.GetPosition sadece pencere fare mesajı alınca güncellenir;
+        // şeffaf (tıklama geçiren) pencerede fare dışarı çıkınca eski değerde kalıp adayı "hover" durumunda takılı bırakıyordu.
+        public static Vec2 CursorPosition
+        {
+            get
+            {
+                try
+                {
+                    if (GetCursorPos(out var p) && MainForm.Instance != null && PresentationSource.FromVisual(MainForm.Instance) != null)
+                    {
+                        var pt = MainForm.Instance.PointFromScreen(new System.Windows.Point(p.X, p.Y));
+                        return new Vec2((float)pt.X, (float)pt.Y);
+                    }
+                }
+                catch { }
+                return new Vec2(-10000, -10000);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
+        [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
 
         private static RendererMain instance;
         public static RendererMain Instance => instance;
@@ -43,6 +63,7 @@ namespace DynamicWin.Main
         public float DeltaTime => deltaTime;
 
         private bool isInitialized = false;
+        private readonly SplitBubble splitBubble = new SplitBubble();
         public int canvasWithoutClip;
         private GRContext Context;
 
@@ -65,15 +86,22 @@ namespace DynamicWin.Main
             int refreshRate = GetRefreshRate();
             Debug.WriteLine($"Monitor Refresh Rate: {refreshRate} Hz");
 
-            CompositionTarget.Rendering += OnRendering;
+            // Boştayken düşük hızlı zamanlayıcı, etkileşimde ekran senkronlu CompositionTarget.Rendering (bkz. SetFrameSource).
+            idleTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Render)
+            {
+                Interval = TimeSpan.FromMilliseconds(33)
+            };
+            idleTimer.Tick += OnRendering;
+            SetFrameSource(interactive: false);
 
             isInitialized = true;
         }
 
         public void Destroy()
         {
-            CompositionTarget.Rendering -= OnRendering;
-            // if (fallbackTimer != null) fallbackTimer.Stop();
+            if (renderingHooked) CompositionTarget.Rendering -= OnRendering;
+            renderingHooked = false;
+            idleTimer?.Stop();
 
             KeyHandler.onKeyDown -= OnKeyRegistered;
             MainForm.Instance.DragEnter -= MainForm.Instance.MainForm_DragEnter;
@@ -85,8 +113,82 @@ namespace DynamicWin.Main
 
         private void OnRendering(object sender, EventArgs e)
         {
+            // Tam ekranda pencere gizli; güncelleme/çizim yapıp CPU/GPU harcama.
+            if (FullscreenDetector.IsFullscreenActive)
+            {
+                // Geri dönüldüğünde ilk karede dev bir deltaTime ile animasyonlar patlamasın.
+                updateStopwatch = null;
+                // Tam ekranda ekran Hz'inde uyanmaya gerek yok: zamanlayıcıya geç ve 4 Hz'e düşür.
+                SetFrameSource(interactive: false);
+                if (idleTimer != null) idleTimer.Interval = TimeSpan.FromMilliseconds(250);
+                return;
+            }
+
+            // CompositionTarget.Rendering ekranın yenileme hızında tetiklenir (bu cihazda 180 Hz).
+            // Ekranı kaplayan şeffaf pencereyi her seferinde CPU ile çizmek bir çekirdeği yiyordu;
+            // etkileşim/animasyon varken 60, boştayken 30 FPS ile sınırla.
+            bool interactive = IsInteractive();
+            SetFrameSource(interactive);
+
+            // Ada küçükken pencereyi kısalt: WPF render thread'i her karede tüm şeffaf pencereyi (layered window)
+            // Windows'a aktarıyor; maliyet piksel sayısıyla orantılı. Etkileşim başlayınca anında tam boya döner.
+            MainForm.Instance.SetCompact(!interactive);
+
+            // Ada tamamen boşken (gösterilecek widget yok) animasyon da yok denecek kadar az: 15 FPS yeter.
+            bool empty = islandObject.Size.X < 130 && !interactive;
+            double targetMs = interactive ? 1000.0 / 60 : empty ? 1000.0 / 15 : 1000.0 / 30;
+            if (idleTimer != null) idleTimer.Interval = TimeSpan.FromMilliseconds(empty ? 66 : 33);
+            if (frameClock.Elapsed.TotalMilliseconds - lastFrameMs < targetMs - 1) return;
+            lastFrameMs = frameClock.Elapsed.TotalMilliseconds;
+
+            long t0 = Stopwatch.GetTimestamp();
             Update();
+            Perf.Add("update", t0);
             Render();
+        }
+
+        // Kare kaynağı: CompositionTarget.Rendering'e abone olmak WPF'i ekran Hz'inde (bu cihazda 180) uyandırır;
+        // biz karelerin çoğunu atlasak da WPF render thread'i her vsync'te çalışıyordu (boşta ~%5-8 çekirdek).
+        // Bu yüzden sadece etkileşimde (60 FPS akıcılık için) abone olunur, boştayken DispatcherTimer kullanılır.
+        System.Windows.Threading.DispatcherTimer? idleTimer;
+        bool renderingHooked;
+
+        void SetFrameSource(bool interactive)
+        {
+            if (interactive && !renderingHooked)
+            {
+                idleTimer?.Stop();
+                CompositionTarget.Rendering += OnRendering;
+                renderingHooked = true;
+            }
+            else if (!interactive && renderingHooked)
+            {
+                CompositionTarget.Rendering -= OnRendering;
+                renderingHooked = false;
+                idleTimer?.Start();
+            }
+            else if (!interactive && idleTimer != null && !idleTimer.IsEnabled)
+            {
+                idleTimer.Start();
+            }
+        }
+
+        private readonly Stopwatch frameClock = Stopwatch.StartNew();
+        private double lastFrameMs = double.MinValue / 2;
+        private double lastInteractiveMs = double.MinValue / 2;
+
+        bool IsInteractive()
+        {
+            bool now = islandObject.IsHovering
+                || MainForm.Instance.isDragging
+                || !(MenuManager.Instance.ActiveMenu is HomeMenu)
+                || Math.Abs(islandObject.Size.X - islandObject.currSize.X) > 0.5f
+                || Math.Abs(islandObject.Size.Y - islandObject.currSize.Y) > 0.5f;
+
+            if (now) lastInteractiveMs = frameClock.Elapsed.TotalMilliseconds;
+
+            // Etkileşim bittikten sonra kısa süre daha akıcı kal (kapanış animasyonları için).
+            return frameClock.Elapsed.TotalMilliseconds - lastInteractiveMs < 1000;
         }
 
         private void OnKeyRegistered(Keys key, KeyModifier modifier)
@@ -123,7 +225,8 @@ namespace DynamicWin.Main
             if (updateStopwatch != null)
             {
                 updateStopwatch.Stop();
-                deltaTime = updateStopwatch.ElapsedMilliseconds / 1000f;
+                // Tam sayı milisaniye yerine hassas süre; düşük/değişken FPS'te animasyonlar takılmasın.
+                deltaTime = (float)Math.Min(updateStopwatch.Elapsed.TotalSeconds, 0.1);
             }
             else
             {
@@ -132,7 +235,9 @@ namespace DynamicWin.Main
 
             updateStopwatch = Stopwatch.StartNew();
 
+            long tu = Stopwatch.GetTimestamp();
             onUpdate?.Invoke(DeltaTime);
+            Perf.Add("u:onUpdate", tu); tu = Stopwatch.GetTimestamp();
 
             if (BrightnessAdjustMenu.GetBrightness() != initialScreenBrightness && PopupOptions.saveData.brightnessPopup)
             {
@@ -148,29 +253,60 @@ namespace DynamicWin.Main
                 }
             }
 
+            // Claude Code olaylarından gelen bildirimleri sadece ana menüdeyken aç;
+            // başka bir overlay açıksa sırada bekler.
+            if (MenuManager.Instance.ActiveMenu is HomeMenu && ClaudeBridge.PopupQueue.TryDequeue(out var claudeEvent))
+            {
+                MenuManager.OpenOverlayMenu(ClaudeCodeMenu.Create(claudeEvent),
+                    claudeEvent.State == ClaudeState.WaitingPermission ? 10f : 5f);
+            }
+            else if (MenuManager.Instance.ActiveMenu is HomeMenu && IslandPopups.TryDequeue(out var popup))
+            {
+                MenuManager.OpenOverlayMenu(InfoPopupMenu.Create(popup!), popup!.Seconds);
+            }
+            else if (MenuManager.Instance.ActiveMenu is HomeMenu && NotificationWatcher.TryDequeueFresh(out var notification))
+            {
+                MenuManager.OpenOverlayMenu(NotificationMenu.Create(notification!), 5f);
+            }
+
+            Perf.Add("u:brightness+popups", tu); tu = Stopwatch.GetTimestamp();
             MenuManager.Instance.Update(DeltaTime);
 
             if (MenuManager.Instance.ActiveMenu != null)
             {
                 MenuManager.Instance.ActiveMenu.Update();
+                Perf.Add("u:menu", tu); tu = Stopwatch.GetTimestamp();
 
                 if (MenuManager.Instance.ActiveMenu is DropFileMenu && !MainForm.Instance.isDragging)
                     MenuManager.OpenMenu(Res.HomeMenu);
             }
 
             islandObject.UpdateCall(DeltaTime);
+            Perf.Add("u:island", tu); tu = Stopwatch.GetTimestamp();
+            splitBubble.Update(DeltaTime, islandObject);
+            Perf.Add("u:bubble", tu);
 
             if (MainIsland.hidden) return;
 
             foreach (UIObject uiObject in objects)
             {
+                long to = Stopwatch.GetTimestamp();
                 uiObject.UpdateCall(DeltaTime);
+                Perf.Add("u:" + uiObject.GetType().Name, to);
             }
         }
 
         private void Render()
         {
             Dispatcher.Invoke(() => InvalidateVisual());
+        }
+
+        protected override void OnRender(System.Windows.Media.DrawingContext drawingContext)
+        {
+            long t = Stopwatch.GetTimestamp();
+            base.OnRender(drawingContext);
+            Perf.Add("render:total", t);
+            Perf.Frame();
         }
 
         protected override void OnPaintSurface(SKPaintSurfaceEventArgs e)
@@ -190,7 +326,10 @@ namespace DynamicWin.Main
             canvasWithoutClip = canvas.Save();
 
             if (islandObject.maskInToIsland) Mask(canvas);
+            long tIsland = Stopwatch.GetTimestamp();
             islandObject.DrawCall(canvas);
+            splitBubble.Draw(canvas, islandObject);
+            Perf.Add("draw:island", tIsland);
 
             if (MainIsland.hidden) return;
 
@@ -223,7 +362,9 @@ namespace DynamicWin.Main
                 canvas.Scale(scaleOffset.X, scaleOffset.Y, islandObject.Position.X + islandObject.Size.X / 2, islandObject.Position.Y + islandObject.Size.Y / 2);
                 canvas.Translate(renderOffset.X, renderOffset.Y);
 
+                long tObj = Stopwatch.GetTimestamp();
                 uiObject.DrawCall(canvas);
+                Perf.Add("draw:" + uiObject.GetType().Name, tObj);
             }
 
             onDraw?.Invoke(canvas);

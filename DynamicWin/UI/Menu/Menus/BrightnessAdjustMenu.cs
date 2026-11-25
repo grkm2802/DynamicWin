@@ -98,7 +98,47 @@ namespace DynamicWin.UI.Menu.Menus
     {
         static bool notSupported = false;
 
+        // WMI sorgusu ~6 ms sürüyor ve RendererMain parlaklığı her karede soruyor. UI thread'inde hiç sorgu yapılmaz:
+        // değer WMI'ın parlaklık olayı (WmiMonitorBrightnessEvent) ile güncellenir; olay kurulamazsa arka planda
+        // saniyede bir yoklanır. Get() sadece önbellekteki değeri döndürür.
+        static volatile int cachedValue = 100;
+        static bool started;
+        static ManagementEventWatcher? watcher;
+        static System.Threading.Timer? fallbackTimer;
+
         public static int Get()
+        {
+            if (notSupported) return 100;
+            if (!started) Start();
+            return cachedValue;
+        }
+
+        static void Start()
+        {
+            started = true;
+            Task.Run(() =>
+            {
+                cachedValue = Query();
+                if (notSupported) return;
+                try
+                {
+                    watcher = new ManagementEventWatcher(new ManagementScope(@"\\.\root\wmi"),
+                        new EventQuery("SELECT * FROM WmiMonitorBrightnessEvent"));
+                    watcher.EventArrived += (_, e) =>
+                    {
+                        try { cachedValue = Convert.ToInt32(e.NewEvent.Properties["Brightness"].Value); }
+                        catch { cachedValue = Query(); }
+                    };
+                    watcher.Start();
+                }
+                catch
+                {
+                    fallbackTimer = new System.Threading.Timer(_ => cachedValue = Query(), null, 1000, 1000);
+                }
+            });
+        }
+
+        static int Query()
         {
             if(notSupported)
                 return 100;

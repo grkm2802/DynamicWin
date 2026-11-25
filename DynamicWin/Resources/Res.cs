@@ -9,9 +9,11 @@ namespace DynamicWin.Resources
 {
     public class Res
     {
-        public static SKTypeface InterRegular { get => LoadTypeface("Resources\\Inter_24pt-Regular.ttf"); }
-        public static SKTypeface InterBold { get => LoadTypeface("Resources\\Inter_24pt-ExtraBold.ttf"); }
-        public static SKTypeface CascadiaMono { get => LoadTypeface("Resources\\CascadiaMono.ttf"); }
+        // Fontlar bir kez yüklenip önbelleklenir; eskiden her erişimde (her karede) dosyadan okunuyordu.
+        static SKTypeface? interRegular, interBold, cascadiaMono;
+        public static SKTypeface InterRegular { get => interRegular ??= LoadTypeface("Resources\\Inter_24pt-Regular.ttf"); }
+        public static SKTypeface InterBold { get => interBold ??= LoadTypeface("Resources\\Inter_24pt-ExtraBold.ttf"); }
+        public static SKTypeface CascadiaMono { get => cascadiaMono ??= LoadTypeface("Resources\\CascadiaMono.ttf"); }
 
         public static SKBitmap searchIcon;
         public static SKBitmap editIcon;
@@ -217,11 +219,11 @@ namespace DynamicWin.Resources
         {
             try
             {
-                return SKTypeface.FromFile(path);
+                return SKTypeface.FromFile(path) ?? SKTypeface.Default;
             }catch(Exception e)
             {
                 System.Diagnostics.Debug.WriteLine("Could not load font: " + path);
-                return InterRegular;
+                return SKTypeface.Default;
             }
         }
     }

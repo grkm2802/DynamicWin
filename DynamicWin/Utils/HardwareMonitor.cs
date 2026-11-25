@@ -34,6 +34,7 @@ namespace DynamicWin.Utils
         }
 
         Computer computer;
+        bool isOpen;
         float lastCpu = 0;
         string lastRam = "";
 
@@ -55,7 +56,8 @@ namespace DynamicWin.Utils
             {
                 Debug.WriteLine($"HardwareMonitor BEFORE #{iCall}");
 
-                computer.Open();
+                // Open() donanımı baştan tarar (pahalı); sadece ilk seferde aç, sonra Update yeter.
+                if (!isOpen) { computer.Open(); isOpen = true; }
 
                 foreach (var hardware in computer.Hardware)
                 {
@@ -97,8 +99,6 @@ namespace DynamicWin.Utils
 
                 usageString = $"CPU: {lastCpu}%    RAM: {lastRam}";
 
-                instance.computer.Close();
-
                 Debug.WriteLine($"HardwareMonitor AFTER #{iCall}");
             }
             catch (Exception ex)
@@ -115,7 +115,7 @@ namespace DynamicWin.Utils
 
         public static void Stop()
         {
-            if( instance.computer != null )
+            if (instance?.computer != null)
             {
                 instance.computer.Close();
             }

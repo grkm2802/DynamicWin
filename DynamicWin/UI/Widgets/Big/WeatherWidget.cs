@@ -62,7 +62,7 @@ namespace DynamicWin.UI.Widgets.Big
         {
             var objects = new List<UIObject>();
 
-            var hideLocationCheckbox = new Checkbox(null, "Hide current location", new Vec2(25, 0), new Vec2(25, 25), null, alignment: UIAlignment.TopLeft);
+            var hideLocationCheckbox = new Checkbox(null, L.T("Hide current location", "Konumu gizle"), new Vec2(25, 0), new Vec2(25, 25), null, alignment: UIAlignment.TopLeft);
             hideLocationCheckbox.IsChecked = saveData.hideLocation;
 
             hideLocationCheckbox.clickCallback += () =>
@@ -72,7 +72,7 @@ namespace DynamicWin.UI.Widgets.Big
 
             objects.Add(hideLocationCheckbox);
 
-            var useCelciusCheckbox = new Checkbox(null, "Use Celsius as temperature measurement", new Vec2(25, 0), new Vec2(25, 25), null, alignment: UIAlignment.TopLeft);
+            var useCelciusCheckbox = new Checkbox(null, L.T("Use Celsius as temperature measurement", "Sıcaklığı Celsius göster"), new Vec2(25, 0), new Vec2(25, 25), null, alignment: UIAlignment.TopLeft);
             useCelciusCheckbox.IsChecked = saveData.useCelcius;
 
             useCelciusCheckbox.clickCallback += () =>
@@ -88,6 +88,10 @@ namespace DynamicWin.UI.Widgets.Big
 
     public class WeatherWidget : WidgetBase
     {
+        public override string TileTitle => L.T("Weather", "Hava durumu");
+        public override string TileGlyph => "";
+        public override string TileStatus => "";
+
         DWText temperatureText;
         DWText weatherText;
         DWText locationText;
@@ -166,7 +170,7 @@ namespace DynamicWin.UI.Widgets.Big
         {
             var ctx = new ContextMenu();
 
-            var hideLocationItem = new MenuItem() { Header = "Hide Location", IsCheckable = true, IsChecked = RegisterWeatherWidgetSettings.saveData.hideLocation };
+            var hideLocationItem = new MenuItem() { Header = L.T("Hide Location", "Konumu gizle"), IsCheckable = true, IsChecked = RegisterWeatherWidgetSettings.saveData.hideLocation };
             hideLocationItem.Click += (x, y) =>
             {
                 RegisterWeatherWidgetSettings.saveData.hideLocation = hideLocationItem.IsChecked;

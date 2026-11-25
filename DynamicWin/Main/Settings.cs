@@ -30,6 +30,18 @@ namespace DynamicWin.Main
         public static bool RunOnStartup { get => runOnStartup; set => runOnStartup = value; }
         public static int Theme { get => theme; set => theme = value; }
         public static int ScreenIndex { get => activeScreenIndex; set => activeScreenIndex = value; }
+        // Tam ekran uygulama (oyun/video) açıkken adayı tamamen gizle ve çizimi durdur.
+        public static bool HideInFullscreen { get; set; } = true;
+        // Windows bildirimlerini adada göster.
+        public static bool ShowNotifications { get; set; } = true;
+        // Arayüz dili: "tr" veya "en" (bkz. Utils/L.cs).
+        public static string Language { get; set; } = "tr";
+        // Ekran görüntüsü panoya gelince Tray'e kaydet ve önizleme göster (#12).
+        public static bool ScreenshotPreview { get; set; } = true;
+        // Bluetooth, şarj, sessize alma, odak, ekran kaydı, kilit açma uyarıları (#9, #10, #21-24).
+        public static bool SystemPopups { get; set; } = true;
+        // Ada görünümü: 0 = düz siyah, 1 = buzlu cam (#17).
+        public static int IslandStyle { get; set; } = 0;
 
         public static List<string> smallWidgetsLeft;
         public static List<string> smallWidgetsRight;
@@ -52,6 +64,18 @@ namespace DynamicWin.Main
 
                     Theme = (int)((Int64)SaveManager.Get("settings.theme"));
                     ScreenIndex = (int)((Int64)SaveManager.Get("settings.screenindex"));
+                    if (SaveManager.Contains("settings.hideinfullscreen"))
+                        HideInFullscreen = (bool)SaveManager.Get("settings.hideinfullscreen");
+                    if (SaveManager.Contains("settings.shownotifications"))
+                        ShowNotifications = (bool)SaveManager.Get("settings.shownotifications");
+                    if (SaveManager.Contains("settings.language"))
+                        Language = (string)SaveManager.Get("settings.language");
+                    if (SaveManager.Contains("settings.screenshotpreview"))
+                        ScreenshotPreview = (bool)SaveManager.Get("settings.screenshotpreview");
+                    if (SaveManager.Contains("settings.systempopups"))
+                        SystemPopups = (bool)SaveManager.Get("settings.systempopups");
+                    if (SaveManager.Contains("settings.islandstyle"))
+                        IslandStyle = (int)(Int64)SaveManager.Get("settings.islandstyle");
 
                     Settings.smallWidgetsLeft = new List<string>();
                     Settings.smallWidgetsRight = new List<string>();
@@ -80,13 +104,15 @@ namespace DynamicWin.Main
                     bigWidgets = new List<string>();
 
                     smallWidgetsRight.Add("DynamicWin.UI.Widgets.Small.RegisterUsedDevicesWidget");
-                    smallWidgetsLeft.Add("DynamicWin.UI.Widgets.Small.RegisterTimeWidget");
-                    bigWidgets.Add("DynamicWin.UI.Widgets.Big.RegisterMediaWidget");
+                    // Saat varsayılan olarak eklenmez: görev çubuğunda zaten var (kullanıcı tercihi).
+                    bigWidgets.Add("DynamicWin.UI.Widgets.Big.RegisterSpotifyWidget");
+                    bigWidgets.Add("DynamicWin.UI.Widgets.Big.RegisterYouTubeWidget");
 
                     IslandMode = IslandObject.IslandMode.Island;
                     AllowBlur = true;
                     AllowAnimation = true;
                     AntiAliasing = true;
+                    RunOnStartup = true; // ilk kurulumda Windows açılışında başlasın (Ayarlar'dan kapatılabilir)
 
                     Settings.Theme = 0;
 
@@ -119,6 +145,73 @@ namespace DynamicWin.Main
             {
                 item.LoadSettings();
             }
+
+            AddClaudeWidgetOnce();
+            // Yeni büyük widget'ları mevcut kurulumlara bir kez ekle (kullanıcı sonra kaldırabilir).
+            AddWidgetOnce("settings.widgetsadded.v2", bigWidgets,
+                "DynamicWin.UI.Widgets.Big.RegisterClipboardWidget",
+                "DynamicWin.UI.Widgets.Big.RegisterPomodoroWidget",
+                "DynamicWin.UI.Widgets.Big.RegisterNoteWidget");
+            SplitMediaWidgetOnce();
+            MoveNetSpeedToTileOnce();
+        }
+
+        // Tek "Medya" kartı yerine Spotify ve YouTube ayrı kartlar (ikisi aynı anda çalabilir). Bir kez yapılır.
+        static void SplitMediaWidgetOnce()
+        {
+            const string flag = "settings.widgetsadded.v3.media";
+            if (SaveManager.Contains(flag)) return;
+            const string media = "DynamicWin.UI.Widgets.Big.RegisterMediaWidget";
+            const string spotify = "DynamicWin.UI.Widgets.Big.RegisterSpotifyWidget";
+            const string youtube = "DynamicWin.UI.Widgets.Big.RegisterYouTubeWidget";
+
+            int i = bigWidgets.IndexOf(media);
+            if (i >= 0) bigWidgets.RemoveAt(i); else i = 0;
+            if (!bigWidgets.Contains(youtube)) bigWidgets.Insert(i, youtube);
+            if (!bigWidgets.Contains(spotify)) bigWidgets.Insert(i, spotify);
+
+            SaveManager.Add(flag, true);
+            Save();
+        }
+
+        // Ağ hızı ada küçükken sürekli görünmesin, istenince bakılsın (kullanıcı isteği): küçük widget'ı kaldır,
+        // genişletilmiş adaya "Ağ hızı" kutusu ekle. Bir kez yapılır.
+        static void MoveNetSpeedToTileOnce()
+        {
+            const string flag = "settings.widgetsadded.v4.netspeed";
+            if (SaveManager.Contains(flag)) return;
+            const string small = "DynamicWin.UI.Widgets.Small.RegisterNetSpeedWidget";
+            const string big = "DynamicWin.UI.Widgets.Big.RegisterNetSpeedBigWidget";
+            smallWidgetsLeft.Remove(small); smallWidgetsRight.Remove(small); smallWidgetsMiddle.Remove(small);
+            if (!bigWidgets.Contains(big)) bigWidgets.Add(big);
+            SaveManager.Add(flag, true);
+            Save();
+        }
+
+        static void AddWidgetOnce(string flag, List<string> target, params string[] widgets)
+        {
+            if (SaveManager.Contains(flag)) return;
+            foreach (var w in widgets)
+                if (!smallWidgetsLeft.Contains(w) && !smallWidgetsRight.Contains(w) && !smallWidgetsMiddle.Contains(w) && !bigWidgets.Contains(w))
+                    target.Add(w);
+            SaveManager.Add(flag, true);
+            Save();
+        }
+
+        // Claude Code widget'ı sonradan eklendi; eski ayar dosyası olanlarda da bir kez sağ tarafa yerleştir.
+        // Kullanıcı sonra kaldırırsa bayrak sayesinde geri eklenmez.
+        static void AddClaudeWidgetOnce()
+        {
+            const string flag = "settings.claudewidgetadded";
+            const string widget = "DynamicWin.UI.Widgets.Small.RegisterClaudeCodeWidget";
+
+            if (SaveManager.Contains(flag)) return;
+
+            if (!smallWidgetsLeft.Contains(widget) && !smallWidgetsRight.Contains(widget) && !smallWidgetsMiddle.Contains(widget))
+                smallWidgetsRight.Insert(0, widget);
+
+            SaveManager.Add(flag, true);
+            Save();
         }
 
         public static void Save()
@@ -132,6 +225,12 @@ namespace DynamicWin.Main
 
             SaveManager.Add("settings.theme", Theme);
             SaveManager.Add("settings.screenindex", ScreenIndex);
+            SaveManager.Add("settings.hideinfullscreen", HideInFullscreen);
+            SaveManager.Add("settings.shownotifications", ShowNotifications);
+            SaveManager.Add("settings.language", Language);
+            SaveManager.Add("settings.screenshotpreview", ScreenshotPreview);
+            SaveManager.Add("settings.systempopups", SystemPopups);
+            SaveManager.Add("settings.islandstyle", IslandStyle);
 
             SaveManager.Add("settings.smallwidgetsleft", smallWidgetsLeft);
             SaveManager.Add("settings.smallwidgetsright", smallWidgetsRight);

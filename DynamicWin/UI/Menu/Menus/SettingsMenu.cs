@@ -43,6 +43,10 @@ namespace DynamicWin.UI.Menu.Menus
             Settings.AllowAnimation = allowAnimation.IsChecked;
             Settings.AntiAliasing = antiAliasing.IsChecked;
             Settings.RunOnStartup = runOnStartup.IsChecked;
+            Settings.HideInFullscreen = hideInFullscreen.IsChecked;
+            Settings.ShowNotifications = showNotifications.IsChecked;
+            Settings.SystemPopups = systemPopups.IsChecked;
+            Settings.ScreenshotPreview = screenshotPreview.IsChecked;
 
             DynamicWinMain.UpdateStartup();
 
@@ -66,6 +70,10 @@ namespace DynamicWin.UI.Menu.Menus
         Checkbox allowAnimation;
         Checkbox antiAliasing;
         Checkbox runOnStartup;
+        Checkbox hideInFullscreen;
+        Checkbox showNotifications;
+        Checkbox systemPopups;
+        Checkbox screenshotPreview;
 
         public override List<UIObject> InitializeMenu(IslandObject island)
         {
@@ -78,20 +86,20 @@ namespace DynamicWin.UI.Menu.Menus
                 item.LoadSettings();
             }
 
-            var generalTitle = new DWText(island, "General", new Vec2(25, 0), UIAlignment.TopLeft);
+            var generalTitle = new DWText(island, L.T("General", "Genel"), new Vec2(25, 0), UIAlignment.TopLeft);
             generalTitle.Font = Res.InterBold;
             generalTitle.Anchor.X = 0;
             objects.Add(generalTitle);
 
             {
-                var islandModesTitle = new DWText(island, "Island Mode", new Vec2(25, 0), UIAlignment.TopLeft);
+                var islandModesTitle = new DWText(island, L.T("Island Mode", "Ada modu"), new Vec2(25, 0), UIAlignment.TopLeft);
                 islandModesTitle.Font = Res.InterRegular;
                 islandModesTitle.Color = Theme.TextSecond;
                 islandModesTitle.TextSize = 15;
                 islandModesTitle.Anchor.X = 0;
                 objects.Add(islandModesTitle);
 
-                var islandModes = new string[] { "Island", "Notch" };
+                var islandModes = new string[] { L.T("Island", "Ada"), L.T("Notch", "Çentik") };
                 var islandMode = new MultiSelectionButton(island, islandModes, new Vec2(25, 0), new Vec2(IslandSize().X - 50, 25), UIAlignment.TopLeft);
                 islandMode.SelectedIndex = (Settings.IslandMode == IslandObject.IslandMode.Island) ? 0 : 1;
                 islandMode.Anchor.X = 0;
@@ -102,29 +110,77 @@ namespace DynamicWin.UI.Menu.Menus
                 objects.Add(islandMode);
             }
 
-            allowBlur = new Checkbox(island, "Toggle blur", new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            allowBlur = new Checkbox(island, L.T("Toggle blur", "Bulanıklık"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
             allowBlur.IsChecked = Settings.AllowBlur;
             allowBlur.Anchor.X = 0;
             objects.Add(allowBlur);
 
-            allowAnimation = new Checkbox(island, "Toggle animations", new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            allowAnimation = new Checkbox(island, L.T("Toggle animations", "Animasyonlar"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
             allowAnimation.IsChecked = Settings.AllowAnimation;
             allowAnimation.Anchor.X = 0;
             objects.Add(allowAnimation);
 
-            antiAliasing = new Checkbox(island, "Toggle anti-aliasing", new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            antiAliasing = new Checkbox(island, L.T("Toggle anti-aliasing", "Kenar yumuşatma"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
             antiAliasing.IsChecked = Settings.AntiAliasing;
             antiAliasing.Anchor.X = 0;
             objects.Add(antiAliasing);
 
-            runOnStartup = new Checkbox(island, "Start application on login", new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            runOnStartup = new Checkbox(island, L.T("Start application on login", "Oturum açılınca başlat"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
             runOnStartup.IsChecked = Settings.RunOnStartup;
             runOnStartup.Anchor.X = 0;
             objects.Add(runOnStartup);
 
+            hideInFullscreen = new Checkbox(island, L.T("Hide in fullscreen (games, video)", "Tam ekranda gizle (oyun, video)"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            hideInFullscreen.IsChecked = Settings.HideInFullscreen;
+            hideInFullscreen.Anchor.X = 0;
+            objects.Add(hideInFullscreen);
+
+            showNotifications = new Checkbox(island, L.T("Show Windows notifications", "Windows bildirimlerini göster"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            showNotifications.IsChecked = Settings.ShowNotifications;
+            showNotifications.Anchor.X = 0;
+            objects.Add(showNotifications);
+
+            systemPopups = new Checkbox(island, L.T("Bluetooth, charging, mute, focus, recording alerts", "Bluetooth, şarj, sessiz, odak, kayıt uyarıları"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            systemPopups.IsChecked = Settings.SystemPopups;
+            systemPopups.Anchor.X = 0;
+            objects.Add(systemPopups);
+
+            screenshotPreview = new Checkbox(island, L.T("Screenshot preview (saved to Tray)", "Ekran görüntüsü önizlemesi (Tray'e kaydedilir)"), new Vec2(25, 0), new Vec2(25, 25), () => { }, UIAlignment.TopLeft);
+            screenshotPreview.IsChecked = Settings.ScreenshotPreview;
+            screenshotPreview.Anchor.X = 0;
+            objects.Add(screenshotPreview);
 
             {
-                var selectedMonitorTitle = new DWText(island, "Selected Monitor", new Vec2(25, 0), UIAlignment.TopLeft);
+                var styleTitle = new DWText(island, L.T("Island style", "Ada görünümü"), new Vec2(25, 0), UIAlignment.TopLeft);
+                styleTitle.Font = Res.InterRegular;
+                styleTitle.TextSize = 15;
+                styleTitle.Anchor.X = 0;
+                objects.Add(styleTitle);
+
+                var style = new MultiSelectionButton(island, new[] { L.T("Solid", "Düz"), L.T("Glass", "Cam") }, new Vec2(25, 0), new Vec2(IslandSize().X - 50, 25), UIAlignment.TopLeft);
+                style.SelectedIndex = Math.Clamp(Settings.IslandStyle, 0, 1);
+                style.Anchor.X = 0;
+                style.onClick += (index) => { Settings.IslandStyle = index; changedTheme = true; };
+                objects.Add(style);
+            }
+
+            {
+                var langTitle = new DWText(island, L.T("Language", "Dil"), new Vec2(25, 0), UIAlignment.TopLeft);
+                langTitle.Font = Res.InterRegular;
+                langTitle.TextSize = 15;
+                langTitle.Anchor.X = 0;
+                objects.Add(langTitle);
+
+                var lang = new MultiSelectionButton(island, new[] { "Türkçe", "English" }, new Vec2(25, 0), new Vec2(IslandSize().X - 50, 25), UIAlignment.TopLeft);
+                lang.SelectedIndex = Settings.Language == "en" ? 1 : 0;
+                lang.Anchor.X = 0;
+                lang.onClick += (index) => { Settings.Language = index == 1 ? "en" : "tr"; changedTheme = true; };
+                objects.Add(lang);
+            }
+
+
+            {
+                var selectedMonitorTitle = new DWText(island, L.T("Selected Monitor", "Monitör"), new Vec2(25, 0), UIAlignment.TopLeft);
                 selectedMonitorTitle.Font = Res.InterRegular;
                 selectedMonitorTitle.TextSize = 15;
                 selectedMonitorTitle.Anchor.X = 0;
@@ -133,8 +189,8 @@ namespace DynamicWin.UI.Menu.Menus
                 var selectedMonitors = new string[MainForm.GetMonitorCount()];
                 for(int i = 0; i < selectedMonitors.Length; i++)
                 {
-                    if (i == 0) selectedMonitors[i] = "Primary";
-                    else selectedMonitors[i] = "Monitor " + i;
+                    if (i == 0) selectedMonitors[i] = L.T("Primary", "Ana monitör");
+                    else selectedMonitors[i] = L.T("Monitor ", "Monitör ") + i;
                 }
 
                 var selectedMonitor = new MultiSelectionButton(island, selectedMonitors, new Vec2(25, 0), new Vec2(IslandSize().X - 50, 25), UIAlignment.TopLeft);
@@ -149,13 +205,13 @@ namespace DynamicWin.UI.Menu.Menus
             }
 
             {
-                var themeTitle = new DWText(island, "Themes", new Vec2(25, 0), UIAlignment.TopLeft);
+                var themeTitle = new DWText(island, L.T("Themes", "Tema"), new Vec2(25, 0), UIAlignment.TopLeft);
                 themeTitle.Font = Res.InterRegular;
                 themeTitle.TextSize = 15;
                 themeTitle.Anchor.X = 0;
                 objects.Add(themeTitle);
 
-                var themeOptions = new string[] { "Custom", "Dark", "Light", "Candy", "Forest Dawn", "Sunset Glow" };
+                var themeOptions = new string[] { L.T("Custom", "Özel"), L.T("Dark", "Koyu"), L.T("Light", "Açık"), "Candy", "Forest Dawn", "Sunset Glow" };
                 var theme = new MultiSelectionButton(island, themeOptions, new Vec2(25, 0), new Vec2(IslandSize().X - 50, 25), UIAlignment.TopLeft);
                 theme.SelectedIndex = Settings.Theme + 1;
                 theme.Anchor.X = 0;
@@ -167,14 +223,14 @@ namespace DynamicWin.UI.Menu.Menus
                 objects.Add(theme);
             }
 
-            var widgetsTitle = new DWText(island, "Widgets", new Vec2(25, 0), UIAlignment.TopLeft);
+            var widgetsTitle = new DWText(island, L.T("Widgets", "Widget'lar"), new Vec2(25, 0), UIAlignment.TopLeft);
             widgetsTitle.Font = Res.InterBold;
             widgetsTitle.Color = Theme.TextSecond;
             widgetsTitle.Anchor.X = 0;
             objects.Add(widgetsTitle);
 
             {
-                var wTitle = new DWText(island, "Small widgets (right click to add/edit)", new Vec2(25, 0), UIAlignment.TopLeft);
+                var wTitle = new DWText(island, L.T("Small widgets (right click to add/edit)", "Küçük widget'lar (eklemek/düzenlemek için sağ tık)"), new Vec2(25, 0), UIAlignment.TopLeft);
                 wTitle.Font = Res.InterRegular;
                 wTitle.Color = Theme.TextSecond;
                 wTitle.TextSize = 15;
@@ -193,7 +249,7 @@ namespace DynamicWin.UI.Menu.Menus
             });
 
             {
-                var wTitle = new DWText(island, "Big widgets (right click to add/edit)", new Vec2(25, 15), UIAlignment.TopLeft);
+                var wTitle = new DWText(island, L.T("Big widgets (right click to add/edit)", "Büyük widget'lar (eklemek/düzenlemek için sağ tık)"), new Vec2(25, 15), UIAlignment.TopLeft);
                 wTitle.Font = Res.InterRegular;
                 wTitle.Color = Theme.TextSecond;
                 wTitle.TextSize = 15;
@@ -211,7 +267,7 @@ namespace DynamicWin.UI.Menu.Menus
                 TextSize = 20
             });
 
-            var widgetOptionsTitle = new DWText(island, "Widget Settings", new Vec2(25, 0), UIAlignment.TopLeft);
+            var widgetOptionsTitle = new DWText(island, L.T("Widget Settings", "Widget ayarları"), new Vec2(25, 0), UIAlignment.TopLeft);
             widgetOptionsTitle.Font = Res.InterBold;
             widgetOptionsTitle.Color = Theme.TextSecond;
             widgetOptionsTitle.Anchor.X = 0;
@@ -251,21 +307,21 @@ namespace DynamicWin.UI.Menu.Menus
                 }
             }
 
-            objects.Add(new DWText(island, "Software version: " + DynamicWinMain.Version, new Vec2(25, 0), UIAlignment.TopLeft)
+            objects.Add(new DWText(island, L.T("Software version: ", "Sürüm: ") + DynamicWinMain.Version, new Vec2(25, 0), UIAlignment.TopLeft)
             {
                 Color = Theme.TextThird,
                 Anchor = new Vec2(0, 0.5f),
                 TextSize = 15
             });
 
-            objects.Add(new DWText(island, "Made by Florian Butz with ♡", new Vec2(25, 0), UIAlignment.TopLeft)
+            objects.Add(new DWText(island, L.T("Made by Florian Butz with ♡", "Florian Butz tarafından ♡ ile yapıldı"), new Vec2(25, 0), UIAlignment.TopLeft)
             {
                 Color = Theme.TextThird,
                 Anchor = new Vec2(0, 0.5f),
                 TextSize = 15
             });
 
-            objects.Add(new DWText(island, "Maintained and developed by 59xa", new Vec2(25, 0), UIAlignment.TopLeft)
+            objects.Add(new DWText(island, L.T("Maintained and developed by 59xa", "Bakım ve geliştirme: 59xa"), new Vec2(25, 0), UIAlignment.TopLeft)
             {
                 Color = Theme.TextThird,
                 Anchor = new Vec2(0, 0.5f),
@@ -273,14 +329,14 @@ namespace DynamicWin.UI.Menu.Menus
                 Font = Resources.Res.InterBold
             });
 
-            objects.Add(new DWText(island, "Licenced under the CC BY-SA 4.0 licence.", new Vec2(25, 0), UIAlignment.TopLeft)
+            objects.Add(new DWText(island, L.T("Licenced under the CC BY-SA 4.0 licence.", "CC BY-SA 4.0 lisansı ile lisanslanmıştır."), new Vec2(25, 0), UIAlignment.TopLeft)
             {
                 Color = Theme.TextThird,
                 Anchor = new Vec2(0, 0.5f),
                 TextSize = 15
             });
 
-            var backBtn = new DWTextButton(island, "Save changes", new Vec2(0, -45), new Vec2(250, 40), () => { SaveAndBack(); }, UIAlignment.BottomCenter)
+            var backBtn = new DWTextButton(island, L.T("Save changes", "Değişiklikleri kaydet"), new Vec2(0, -45), new Vec2(250, 40), () => { SaveAndBack(); }, UIAlignment.BottomCenter)
             {
                 roundRadius = 25
             };
@@ -531,7 +587,7 @@ namespace DynamicWin.UI.Menu.Menus
                 var ctx2 = new ContextMenu();
                 ctx2.Items.Add(new MenuItem()
                 {
-                    Header = "No widgets available.",
+                    Header = L.T("No widgets available.", "Eklenebilecek widget yok."),
                     IsEnabled = false
                 });
                 return ctx2;
@@ -634,13 +690,13 @@ namespace DynamicWin.UI.Menu.Menus
         {
             var ctx = new System.Windows.Controls.ContextMenu();
 
-            MenuItem remove = new MenuItem() { Header = "Remove" };
+            MenuItem remove = new MenuItem() { Header = L.T("Remove", "Kaldır") };
             remove.Click += (x, y) => onEditRemoveWidget?.Invoke();
 
-            MenuItem pL = new MenuItem() { Header = "<- Push Left" };
+            MenuItem pL = new MenuItem() { Header = L.T("<- Push Left", "<- Sola taşı") };
             pL.Click += (x, y) => onEditMoveWidgetLeft?.Invoke();
 
-            MenuItem pR = new MenuItem() { Header = "Push Right ->" };
+            MenuItem pR = new MenuItem() { Header = L.T("Push Right ->", "Sağa taşı ->") };
             pR.Click += (x, y) => onEditMoveWidgetRight?.Invoke();
 
             ctx.Items.Add(remove);
@@ -856,9 +912,9 @@ namespace DynamicWin.UI.Menu.Menus
             var ctx = new System.Windows.Controls.ContextMenu();
             bool anyWidgetsLeft = false;
 
-            MenuItem left = new MenuItem() { Header = "Left" };
-            MenuItem middle = new MenuItem() { Header = "Middle" };
-            MenuItem right = new MenuItem() { Header = "Right" };
+            MenuItem left = new MenuItem() { Header = L.T("Left", "Sol") };
+            MenuItem middle = new MenuItem() { Header = L.T("Middle", "Orta") };
+            MenuItem right = new MenuItem() { Header = L.T("Right", "Sağ") };
 
             foreach (var availableWidget in Res.availableSmallWidgets)
             {
@@ -903,7 +959,7 @@ namespace DynamicWin.UI.Menu.Menus
                 var ctx2 = new ContextMenu();
                 ctx2.Items.Add(new MenuItem()
                 {
-                    Header = "No Widgets Available.",
+                    Header = L.T("No Widgets Available.", "Eklenebilecek widget yok."),
                     IsEnabled = false
                 });
                 return ctx2;

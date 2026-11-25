@@ -1,13 +1,8 @@
-﻿using DynamicWin.UI.UIElements;
+﻿using DynamicWin.Main;
+using DynamicWin.Resources;
+using DynamicWin.UI.UIElements;
 using DynamicWin.Utils;
 using SkiaSharp;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DynamicWin.UI.Widgets.Big
 {
@@ -18,296 +13,186 @@ namespace DynamicWin.UI.Widgets.Big
 
         public WidgetBase CreateWidgetInstance(UIObject? parent, Vec2 position, UIAlignment alignment = UIAlignment.TopCenter)
         {
-            return new MediaWidget(parent, position, alignment);
+            return new MediaWidget(parent, position, alignment, MediaKind.Any);
         }
     }
 
+    class RegisterSpotifyWidget : IRegisterableWidget
+    {
+        public bool IsSmallWidget => false;
+        public string WidgetName => "Spotify";
+        public WidgetBase CreateWidgetInstance(UIObject? parent, Vec2 position, UIAlignment alignment = UIAlignment.TopCenter)
+            => new MediaWidget(parent, position, alignment, MediaKind.Spotify);
+    }
+
+    class RegisterYouTubeWidget : IRegisterableWidget
+    {
+        public bool IsSmallWidget => false;
+        public string WidgetName => "YouTube (browser)";
+        public WidgetBase CreateWidgetInstance(UIObject? parent, Vec2 position, UIAlignment alignment = UIAlignment.TopCenter)
+            => new MediaWidget(parent, position, alignment, MediaKind.Browser);
+    }
+
+    /// <summary>
+    /// Şu an çalan medya (her oynatıcı, <see cref="MediaSession"/>): albüm kapağı, başlık/sanatçı,
+    /// kapak rengiyle arka plan ve parlama, tıklanabilir ilerleme çubuğu, oynat/durdur/ileri/geri.
+    /// Eskiden sadece Spotify pencere başlığını okuyordu.
+    /// </summary>
     public class MediaWidget : WidgetBase
     {
-        MediaController controller;
-        AudioVisualizer audioVisualizer;
-        AudioVisualizer audioVisualizerBig;
-
         DWImageButton playPause;
         DWImageButton next;
         DWImageButton prev;
 
-        DWText noMediaPlaying;
+        Col accent = Theme.Primary;
+        float glow = 0f;
 
-        DWText title;
-        DWText artist;
+        const float pad = 12f;
+        const float art = 44f;
 
-        /*protected override float GetWidgetWidth()
+        readonly MediaKind kind;
+        MediaSource Src => MediaSession.For(kind);
+
+        /// <summary>Medya kartları adada büyük gösterilir; diğer widget'lar küçük kutu olur.</summary>
+        public override bool IsFeatured => true;
+        public override string TileTitle => kind == MediaKind.Any ? L.T("Media", "Medya") : Src.Name;
+        public override string TileGlyph => "";
+
+        public MediaWidget(UIObject? parent, Vec2 position, UIAlignment alignment, MediaKind kind) : base(parent, position, alignment)
         {
-            return base.GetWidgetWidth() * 2f;
-        }*/
+            this.kind = kind;
+            MediaSession.Start();
 
-        public MediaWidget(UIObject? parent, Vec2 position, UIAlignment alignment = UIAlignment.TopCenter) : base(parent, position, alignment)
-        {
-            InitMediaPlayer();
-
-            playPause = new DWImageButton(this, Resources.Res.PlayPause, new Vec2(0, 25), new Vec2(30, 30), () =>
-            {
-                controller.PlayPause();
-            }, alignment: UIAlignment.Center)
-            {
-                roundRadius = 25,
-                normalColor = Col.Transparent,
-                hoverColor = Col.White.Override(a: 0.1f),
-                clickColor = Col.White.Override(a: 0.25f),
-                hoverScaleMulti = Vec2.one * 1.25f,
-                imageScale = 0.8f
-            };
-            AddLocalObject(playPause);
-
-            next = new DWImageButton(this, Resources.Res.Next, new Vec2(50, 25), new Vec2(30, 30), () =>
-            {
-                controller.Next();
-            }, alignment: UIAlignment.Center)
-            {
-                roundRadius = 25,
-                normalColor = Col.Transparent,
-                hoverColor = Col.White.Override(a: 0.1f),
-                clickColor = Col.White.Override(a: 0.25f),
-                hoverScaleMulti = Vec2.one * 1.25f,
-                imageScale = 0.65f
-            };
-            AddLocalObject(next);
-
-            prev = new DWImageButton(this, Resources.Res.Previous, new Vec2(-50, 25), new Vec2(30, 30), () =>
-            {
-                controller.Previous();
-            }, alignment: UIAlignment.Center)
-            {
-                roundRadius = 25,
-                normalColor = Col.Transparent,
-                hoverColor = Col.White.Override(a: 0.1f),
-                clickColor = Col.White.Override(a: 0.25f),
-                hoverScaleMulti = Vec2.one * 1.25f,
-                imageScale = 0.65f
-            };
-            AddLocalObject(prev);
-
-            audioVisualizer = new AudioVisualizer(this, new Vec2(0, 30), new Vec2(125, 25), length: 16)
-            {
-                divisor = 1.35f
-            };
-            AddLocalObject(audioVisualizer);
-
-            audioVisualizerBig = new AudioVisualizer(this, new Vec2(0, 0), GetWidgetSize(), length: 16, alignment: UIAlignment.Center,
-                Primary: spotifyCol.Override(a: 0.35f), Secondary: spotifyCol.Override(a: 0.025f) * 0.1f)
-            {
-                divisor = 2f
-            };
-            audioVisualizerBig.SilentSetActive(false);
-
-            noMediaPlaying = new DWText(this, "No Media Playing", new Vec2(0, 30))
-            {
-                Color = Theme.TextSecond,
-                Font = Resources.Res.InterBold,
-                TextSize = 16
-            };
-            noMediaPlaying.SilentSetActive(false);
-            AddLocalObject(noMediaPlaying);
-
-            title = new DWText(this, "Title", new Vec2(0, 22.5f))
-            {
-                Color = Theme.TextSecond,
-                Font = Resources.Res.InterBold,
-                TextSize = 15
-            };
-            title.SilentSetActive(false);
-            AddLocalObject(title);
-
-            artist = new DWText(this, "Artist", new Vec2(0, 42.5f))
-            {
-                Color = Theme.TextThird,
-                Font = Resources.Res.InterRegular,
-                TextSize = 13
-            };
-            artist.SilentSetActive(false);
-            AddLocalObject(artist);
+            playPause = MakeButton(Res.PlayPause, 0, 0.8f, () => Src.TogglePlayPause());
+            next = MakeButton(Res.Next, 34, 0.65f, () => Src.Next());
+            prev = MakeButton(Res.Previous, -34, 0.65f, () => Src.Previous());
         }
 
-        float smoothedAmp = 0f;
-        float smoothing = 1.5f;
+        DWImageButton MakeButton(SKBitmap icon, float x, float scale, Action onClick)
+        {
+            var b = new DWImageButton(this, icon, new Vec2(x, 34), new Vec2(24, 24), onClick, alignment: UIAlignment.Center)
+            {
+                roundRadius = 25,
+                normalColor = Col.Transparent,
+                hoverColor = Col.White.Override(a: 0.1f),
+                clickColor = Col.White.Override(a: 0.25f),
+                hoverScaleMulti = Vec2.one * 1.2f,
+                imageScale = scale
+            };
+            AddLocalObject(b);
+            return b;
+        }
 
-        int cycle = 0;
+        SKRect BarRect => SKRect.Create(Position.X + pad, Position.Y + 64, Size.X - pad * 2, 4);
+
+        public override void OnMouseDown()
+        {
+            base.OnMouseDown();
+
+            // İlerleme çubuğuna (biraz geniş tutulmuş alanına) tıklanınca o konuma atla.
+            var bar = BarRect;
+            var c = RendererMain.CursorPosition;
+            if (Src.HasSession && c.X >= bar.Left - 4 && c.X <= bar.Right + 4 && Math.Abs(c.Y - bar.MidY) <= 7)
+                Src.SeekTo((c.X - bar.Left) / bar.Width);
+        }
 
         public override void Update(float deltaTime)
         {
             base.Update(deltaTime);
 
-            if (cycle % 32 == 0)
-            {
-                isSpotifyAvaliable = IsSpotifyAvaliable();
+            accent = Col.Lerp(accent, Src.AccentColor, 4f * deltaTime);
+            glow = Mathf.Lerp(glow, Src.IsPlaying ? 1f : 0.35f, 4f * deltaTime);
 
-                if (isSpotifyAvaliable)
-                {
-                    string titleString;
-                    string artistString;
-                    string error;
-
-                    GetSpotifyTrackInfo(out titleString, out artistString, out error);
-
-                    if (string.IsNullOrEmpty(error))
-                    {
-                        title.Text = DWText.Truncate(titleString, (GetWidgetWidth() == 400 ? 50 : 20));
-                        artist.Text = DWText.Truncate(artistString, (GetWidgetWidth() == 400 ? 60 : 28));
-                    }
-                    else
-                    {
-                        if (!error.Equals("Paused") || title.Text.ToLower().Equals("title") || title.Text.ToLower().Equals("error"))
-                        {
-                            title.Text = "Error";
-                            artist.Text = DWText.Truncate(error, 24);
-                        }
-
-                    }
-                }
-            }
-            cycle++;
-
-            prev.normalColor = Theme.IconColor * audioVisualizer.GetActionCol().Override(a: 0.2f);
-            next.normalColor = Theme.IconColor * audioVisualizer.GetActionCol().Override(a: 0.2f);
-            playPause.normalColor = Theme.IconColor * audioVisualizer.GetActionCol().Override(a: 0.2f);
-
-            if(!isSpotifyAvaliable)
-                smoothedAmp = (float)Math.Max(Mathf.Lerp(smoothedAmp, audioVisualizer.AverageAmplitude, smoothing * deltaTime), audioVisualizer.AverageAmplitude);
-            else
-                smoothedAmp = (float)Math.Max(Mathf.Lerp(smoothedAmp, audioVisualizer.AverageAmplitude, smoothing * deltaTime), audioVisualizer.AverageAmplitude);
-
-            if (smoothedAmp < 0.005f) smoothedAmp = 0f;
-
-            spotifyBlur = Mathf.Lerp(spotifyBlur, isSpotifyAvaliable ? 0f : 25f, 10f * deltaTime);
-
-            noMediaPlaying.SetActive(smoothedAmp.Equals(0f) && !isSpotifyAvaliable);
-            title.SetActive(isSpotifyAvaliable);
-            artist.SetActive(isSpotifyAvaliable);
-            audioVisualizerBig.SetActive(isSpotifyAvaliable);
-            audioVisualizer.SetActive(!isSpotifyAvaliable);
-
-            audioVisualizerBig.UpdateCall(deltaTime);
+            bool has = Src.HasSession;
+            playPause.SetActive(has);
+            next.SetActive(has);
+            prev.SetActive(has);
         }
-
-        private void InitMediaPlayer()
-        {
-            controller = new MediaController();
-        }
-
-        float spotifyBlur = 0f;
-        bool isSpotifyAvaliable = false;
-        Col spotifyCol = Col.FromHex("#1cb351");
 
         public override void DrawWidget(SKCanvas canvas)
         {
-            var paint = GetPaint();
+            var rect = GetRect();
+            using var paint = GetPaint();
+
+            // Arka plan + kapak rengiyle soldan sağa sönen renk
             paint.Color = GetColor(Theme.WidgetBackground).Value();
-            canvas.DrawRoundRect(GetRect(), paint);
+            canvas.DrawRoundRect(rect, paint);
 
-            int saveCanvas = canvas.Save();
-
-            canvas.ClipRoundRect(GetRect());
-
-            audioVisualizerBig.Alpha = 0.75f;
-            audioVisualizerBig.blurAmount = 15f;
-            audioVisualizerBig.DrawCall(canvas);
-
-            canvas.RestoreToCount(saveCanvas);
-
-            if (isSpotifyAvaliable || spotifyBlur <= 24f)
+            var src = Src;
+            if (!src.HasSession)
             {
-                paint.Color = spotifyCol.Override(a: Color.a * (1f - (spotifyBlur / 25f))).Value();
-
-                var blur = SKImageFilter.CreateBlur((float)Math.Max(GetBlur(), spotifyBlur) + 0.1f, (float)Math.Max(GetBlur(), spotifyBlur) + 0.1f);
-                paint.ImageFilter = blur;
-
-                var r = GetRect();
-
-                var inward = 5;
-                var w = 25 + spotifyBlur * (isSpotifyAvaliable ? 2.5f : -0.15f);
-                var h = 25 + spotifyBlur * (isSpotifyAvaliable ? 2.5f : -0.15f);
-                var x = Position.X + r.Width - w / 2 - inward;
-                var y = Position.Y - h / 2 + inward;
-
-                try
-                {
-                    canvas.DrawBitmap(Resources.Res.Spotify, SKRect.Create(x, y, w, h), paint);
-                }catch(ArgumentNullException e)
-                {
-                    // Do nothing and don't draw
-                }
-
-                paint.Color = GetColor(spotifyCol.Override(a: 0.25f * Color.a)).Value();
-                paint.StrokeWidth = 2f;
-
-                float[] intervals = { 5, 10 };
-                paint.PathEffect = SKPathEffect.CreateDash(intervals, (float)-cycle * 0.1f);
-
-                paint.IsStroke = true;
-                paint.StrokeCap = SKStrokeCap.Round;
-                paint.StrokeJoin = SKStrokeJoin.Round;
-
-                canvas.DrawRoundRect(r, paint);
-
-                canvas.RestoreToCount(saveCanvas);
-
-                var shadowPaint = GetPaint();
-
-                var drop = SKImageFilter.CreateDropShadowOnly(0, 0, (25f - spotifyBlur) / 2, (25f - spotifyBlur) / 2, 
-                    spotifyCol.Override(a: (25f - spotifyBlur) / 100f).Value());
-                shadowPaint.ImageFilter = drop;
-                shadowPaint.IsStroke = true;
-                shadowPaint.StrokeWidth = 15;
-
-                int s = canvas.Save();
-                canvas.ClipRoundRect(GetRect());
-                canvas.DrawRoundRect(GetRect(), shadowPaint);
-                canvas.RestoreToCount(s);
-            }
-        }
-
-        public static void GetSpotifyTrackInfo(out string title, out string artist, out string error)
-        {
-            var proc = Process.GetProcessesByName("Spotify").FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.MainWindowTitle));
-
-            if (proc == null)
-            {
-                error = "Spotify is not open!";
-                title = null;
-                artist = null;
+                Gfx.Text(canvas, kind == MediaKind.Any ? L.T("Media", "Medya") : src.Name, Position.X + Size.X / 2, Position.Y + Size.Y / 2 - 16, 15,
+                    GetColor(src.BrandColor.Override(a: 0.8f)), Res.InterBold, SKTextAlign.Center);
+                Gfx.Text(canvas, L.T("Nothing playing", "Şu an çalmıyor"), Position.X + Size.X / 2, Position.Y + Size.Y / 2 + 4, 11,
+                    GetColor(Theme.TextThird), null, SKTextAlign.Center);
                 return;
             }
 
-            if (proc.MainWindowTitle.ToLower().StartsWith("spotify"))
+            int save = canvas.Save();
+            canvas.ClipRoundRect(rect, antialias: true);
+            using (var g = new SKPaint { IsAntialias = true })
             {
-                error = "Paused";
-                title = null;
-                artist = null;
-                return;
+                g.Shader = SKShader.CreateLinearGradient(
+                    new SKPoint(rect.Rect.Left, rect.Rect.Top), new SKPoint(rect.Rect.Right, rect.Rect.Bottom),
+                    new[] { GetColor(accent.Override(a: 0.30f * glow)).Value(), GetColor(accent.Override(a: 0.04f)).Value() },
+                    SKShaderTileMode.Clamp);
+                canvas.DrawRect(rect.Rect, g);
+            }
+            canvas.RestoreToCount(save);
+
+            // Kapak rengiyle dış parlama (oynarken güçlü)
+            // (ImageFilter.DropShadow yerine MaskFilter: CPU'da çok daha ucuz, bkz. CLAUDE.md "Performans")
+            using (var s = new SKPaint { IsAntialias = true, IsStroke = true, StrokeWidth = 3f })
+            {
+                s.Color = GetColor(accent.Override(a: 0.35f * glow)).Value();
+                s.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(0.5f, 5 * glow));
+                canvas.DrawRoundRect(rect, s);
+                s.MaskFilter = null; s.StrokeWidth = 1.5f;
+                s.Color = GetColor(accent.Override(a: 0.45f * glow)).Value();
+                canvas.DrawRoundRect(rect, s);
             }
 
-            string[] strings = proc.MainWindowTitle.Split(" - ");
-            
-            if(strings.Length >= 2)
+            // Albüm kapağı
+            var artRect = SKRect.Create(Position.X + pad, Position.Y + pad, art, art);
+            var thumb = src.Thumbnail;
+            if (thumb != null)
             {
-                title = strings[1];
-                artist = strings[0];
-                error = null;
+                using var shadow = new SKPaint { IsAntialias = true, Color = GetColor(accent.Override(a: 0.6f * glow)).Value(),
+                    MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, 8) };
+                var sr = artRect; sr.Offset(0, 2);
+                canvas.DrawRoundRect(sr, 8, 8, shadow);
+                Gfx.RoundImage(canvas, thumb, artRect, 8, Alpha);
             }
             else
             {
-                error = null;
-                title = "Advertisement";
-                artist = "";
-                return;
+                paint.ImageFilter = null;
+                paint.Color = GetColor(accent.Override(a: 0.35f)).Value();
+                canvas.DrawRoundRect(artRect, 8, 8, paint);
             }
-        }
 
-        public bool IsSpotifyAvaliable()
-        {
-            var processes = Process.GetProcessesByName("Spotify");
-            return processes.Any();
+            // Başlık / sanatçı
+            float tx = artRect.Right + 10;
+            float tw = rect.Rect.Right - pad - tx;
+            // Sağ üstte küçük kaynak etiketi (Spotify / YouTube)
+            if (kind != MediaKind.Any)
+            {
+                Gfx.Text(canvas, src.Name, rect.Rect.Right - pad, Position.Y + 7, 9, GetColor(src.BrandColor), Res.InterBold, SKTextAlign.Right);
+            }
+            Gfx.Text(canvas, Gfx.Fit(src.Title, tw, 13, Res.InterBold), tx, Position.Y + pad + 6, 13, GetColor(Theme.TextMain), Res.InterBold);
+            Gfx.Text(canvas, Gfx.Fit(src.Artist, tw, 11.5f), tx, Position.Y + pad + 24, 11.5f, GetColor(Theme.TextSecond));
+
+            // İlerleme çubuğu + süreler
+            var bar = BarRect;
+            bool hoverBar = IsHovering && Math.Abs(RendererMain.CursorPosition.Y - bar.MidY) <= 7;
+            if (hoverBar) bar.Inflate(0, 1.5f);
+            Gfx.Bar(canvas, bar, src.Progress, GetColor(Theme.TextMain.Override(a: 0.15f)), GetColor(accent.Override(a: 0.95f)));
+
+            if (src.Duration.TotalSeconds > 1)
+            {
+                Gfx.Text(canvas, Gfx.Time(src.Position), bar.Left, Position.Y + 78, 9.5f, GetColor(Theme.TextThird));
+                Gfx.Text(canvas, "-" + Gfx.Time(src.Duration - src.Position), bar.Right, Position.Y + 78, 9.5f,
+                    GetColor(Theme.TextThird), null, SKTextAlign.Right);
+            }
         }
     }
 }

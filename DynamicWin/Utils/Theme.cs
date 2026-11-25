@@ -26,6 +26,8 @@ namespace DynamicWin.Utils
             Primary = GetColor(theme.Primary);
             Secondary = GetColor(theme.Secondary);
             IslandBackground = GetColor(theme.IslandColor);
+            // Cam görünümü (#17): ada arka planı yarı saydam olur, arkadaki masaüstü hafifçe görünür.
+            if (Main.Settings.IslandStyle == 1) IslandBackground = IslandBackground.Override(a: 0.72f);
             Success = GetColor(theme.Success);
             Error = GetColor(theme.Error);
             IconColor = GetColor(theme.IconColor);

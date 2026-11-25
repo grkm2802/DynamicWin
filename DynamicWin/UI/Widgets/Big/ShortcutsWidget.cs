@@ -35,6 +35,10 @@ namespace DynamicWin.UI.Widgets.Big
 
     public class ShortcutsWidget : WidgetBase
     {
+        public override string TileTitle => L.T("Shortcuts", "Kısayollar");
+        public override string TileGlyph => "";
+        public override string TileStatus => "";
+
         public ShortcutsWidget(UIObject? parent, Vec2 position, UIAlignment alignment = UIAlignment.TopCenter) : base(parent, position, alignment)
         {
             AddLocalObject(new ShortcutButton(this, "s1", new Vec2(GetWidgetWidth() / 4, GetWidgetHeight() / 4),
@@ -145,7 +149,7 @@ namespace DynamicWin.UI.Widgets.Big
 
             if (string.IsNullOrEmpty(savedShortcut.path))
             {
-                var config = new MenuItem() { Header = "Configure Shortcut" };
+                var config = new MenuItem() { Header = L.T("Configure Shortcut", "Kısayolu ayarla") };
                 config.Click += (s, e) =>
                 {
                     ConfigureShortcut();
@@ -154,14 +158,14 @@ namespace DynamicWin.UI.Widgets.Big
             }
             else
             {
-                var run = new MenuItem() { Header = "Run Shortcut" };
+                var run = new MenuItem() { Header = L.T("Run Shortcut", "Kısayolu çalıştır") };
                 run.Click += (s, e) =>
                 {
                     RunShortcut();
                 };
                 ctx.Items.Add(run);
 
-                var remove = new MenuItem() { Header = "Remove Shortcut" };
+                var remove = new MenuItem() { Header = L.T("Remove Shortcut", "Kısayolu kaldır") };
                 remove.Click += (s, e) =>
                 {
                     RemoveShortcut();

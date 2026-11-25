@@ -23,7 +23,7 @@ namespace DynamicWin.UI.Menu.Menus
         {
             var objects = base.InitializeMenu(island);
 
-            overText = new DWText(island, "Timer Over!", new Utils.Vec2(0, 0), UIAlignment.Center)
+            overText = new DWText(island, L.T("Timer Over!", "Süre doldu!"), new Utils.Vec2(0, 0), UIAlignment.Center)
             {
                 TextSize = 20,
                 Font = Resources.Res.InterBold

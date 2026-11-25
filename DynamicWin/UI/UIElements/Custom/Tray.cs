@@ -30,9 +30,9 @@ namespace DynamicWin.UI.UIElements.Custom
 
             if (selectedFiles.Count != 0)
             {
-                contextMenu.Items.Insert(0, new MenuItem() { Header = "Selected Files: " + selectedFiles.Count, IsEnabled = false });
+                contextMenu.Items.Insert(0, new MenuItem() { Header = L.T("Selected Files: ", "Seçili dosyalar: ") + selectedFiles.Count, IsEnabled = false });
 
-                MenuItem removeSelected = new MenuItem() { Header = "Remove Selected File" + ((selectedFiles.Count > 1) ? $"s" : "")  };
+                MenuItem removeSelected = new MenuItem() { Header = L.T("Remove Selected File" + ((selectedFiles.Count > 1) ? "s" : ""), "Seçili dosyaları kaldır")  };
                 removeSelected.Click += (x, y) =>
                 {
                     new List<TrayFile>(selectedFiles).ForEach((f) =>
@@ -43,7 +43,7 @@ namespace DynamicWin.UI.UIElements.Custom
                     selectedFiles.Clear();
                 };
 
-                MenuItem copySelected = new MenuItem() { Header = "Copy Selected File" + ((selectedFiles.Count > 1) ? $"s" : "") };
+                MenuItem copySelected = new MenuItem() { Header = L.T("Copy Selected File" + ((selectedFiles.Count > 1) ? "s" : ""), "Seçili dosyaları kopyala") };
                 copySelected.Click += (x, y) =>
                 {
                     StringCollection paths = new StringCollection();
@@ -56,7 +56,7 @@ namespace DynamicWin.UI.UIElements.Custom
                 contextMenu.Items.Add(new Separator());
             }
 
-            MenuItem removeAll = new MenuItem() { Header = "Remove All Files" };
+            MenuItem removeAll = new MenuItem() { Header = L.T("Remove All Files", "Tüm dosyaları kaldır") };
             removeAll.Click += (x, y) =>
             {
                 new List<TrayFile>(fileObjects).ForEach((f) =>

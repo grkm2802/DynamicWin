@@ -22,6 +22,10 @@ namespace DynamicWin.UI.Widgets.Big
 
     public class TimerWidget : WidgetBase
     {
+        public override string TileTitle => L.T("Timer", "Zamanlayıcı");
+        public override string TileGlyph => "";
+        public override string TileStatus => IsTimerRunning ? Gfx.Time(TimeSpan.FromSeconds(Math.Max(0, CurrentTime))) : "";
+
         DWText timerText;
 
         System.Timers.Timer timer;

@@ -16,7 +16,7 @@ namespace DynamicWin
         public static MMDevice defaultDevice;
         public static MMDevice defaultMicrophone;
 
-        public static string Version => "1.1.0b";
+        public static string Version => "1.3.0";
 
         [STAThread]
         public static void Main()
@@ -85,9 +85,20 @@ namespace DynamicWin
             KeyHandler.Start();
             new Theme();
 
-            new HardwareMonitor();
+            ClaudeBridge.Start();
+            LiveActivityManager.RegisterBuiltIns();
+            NotificationWatcher.Start();
+            BluetoothWatcher.Start();
+            PowerWatcher.Start();
+            SystemStateWatcher.Start();
+            UpdateChecker.Start();
 
             Settings.InitializeSettings();
+
+            // CPU/RAM sensörlerini (LibreHardwareMonitor) sadece "System Usage" widget'ı adadaysa saniyede bir oku.
+            const string usageWidget = "DynamicWin.UI.Widgets.Small.RegisterSystemUsageWidget";
+            if (Settings.smallWidgetsLeft.Contains(usageWidget) || Settings.smallWidgetsRight.Contains(usageWidget) || Settings.smallWidgetsMiddle.Contains(usageWidget))
+                new HardwareMonitor();
             UpdateStartup();
 
             MainForm mainForm = new MainForm();
@@ -100,6 +111,7 @@ namespace DynamicWin
 
             SaveManager.SaveAll();
             HardwareMonitor.Stop();
+            ClaudeBridge.Stop();
 
             MainForm.Instance.DisposeTrayIcon();
 

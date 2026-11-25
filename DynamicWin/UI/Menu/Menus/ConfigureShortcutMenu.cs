@@ -69,7 +69,7 @@ namespace DynamicWin.UI.Menu.Menus
         {
             var objects = base.InitializeMenu(island);
 
-            DWTextButton saveAndBack = new DWTextButton(island, "Save & Back", new Utils.Vec2(0, -30), new Utils.Vec2(IslandSize().X - 30, 30), () =>
+            DWTextButton saveAndBack = new DWTextButton(island, L.T("Save & Back", "Kaydet ve geri dön"), new Utils.Vec2(0, -30), new Utils.Vec2(IslandSize().X - 30, 30), () =>
             {
                 _shortcutButtonToConfigure.SetShortcut(save);
                 MenuManager.OpenMenu(Res.HomeMenu);
@@ -78,7 +78,7 @@ namespace DynamicWin.UI.Menu.Menus
             saveAndBack.roundRadius = 15;
             objects.Add(saveAndBack);
 
-            elementTitle = new DWText(island, "Untitled", new Vec2(25, 25), UIAlignment.TopLeft);
+            elementTitle = new DWText(island, L.T("Untitled", "Adsız"), new Vec2(25, 25), UIAlignment.TopLeft);
             elementTitle.Anchor.X = 0;
             elementTitle.TextSize = 24;
             elementTitle.Font = Res.InterBold;
