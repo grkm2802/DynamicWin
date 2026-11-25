@@ -110,7 +110,7 @@ dotnet build DynamicWin.sln -c Release
 - Otomatik güncelleme için kullanıcının kendi GitHub deposu ve release'ler gerekiyor, henüz yok.
 
 ## Performans (26.11.2026, iki tur)
-Bu cihaz 180 Hz ekranlı dizüstü (RTX 4060 Laptop, 16 çekirdek). Son durum (bir çekirdeğin yüzdesi olarak):
+Geliştirme bilgisayarı 180 Hz ekranlı bir dizüstü (16 çekirdek); yüksek Hz ekranlarda kare kaynağı özellikle önemli. Son durum (bir çekirdeğin yüzdesi olarak):
 - Ada küçük: ~%4.
 - Genişlemiş: ~%17. Başta %57 idi.
 - Özel bellek ~130 MB.
