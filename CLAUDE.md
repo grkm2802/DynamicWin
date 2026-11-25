@@ -142,4 +142,4 @@ Bu cihaz 180 Hz ekranlı dizüstü (RTX 4060 Laptop, 16 çekirdek). Son durum (b
 
 ## Açık konular
 - CPU hâlâ bir çekirdeğin ~%8–22'si (SkiaSharp CPU raster + WPF layered window). Daha da düşürmek için: sadece değişince çizmek (dirty flag) veya GPU'lu SKGLElement'e geçmek.
-- Değişiklikler henüz commit edilmedi; kendi GitHub fork'umuz yok.
+- Kod `gelistirme` dalında yerel olarak commit'li (1.3.0). Kendi GitHub depomuz yok; `origin` hâlâ FlorianButz/DynamicWin, oraya push etme. Otomatik güncelleme için kendi depo gerekir.
