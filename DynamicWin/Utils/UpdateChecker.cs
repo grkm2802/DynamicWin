@@ -20,7 +20,10 @@ namespace DynamicWin.Utils
 
         static System.Threading.Timer? timer;
 
-        public static string Repo => SaveManager.Contains("settings.updaterepo") ? (string)SaveManager.Get("settings.updaterepo") : "";
+        /// <summary>Varsayılan güncelleme deposu; ayarlarda "settings.updaterepo" ile değiştirilebilir (boş = kapalı).</summary>
+        public const string DefaultRepo = "grkm2802/DynamicWin";
+
+        public static string Repo => SaveManager.Contains("settings.updaterepo") ? (string)SaveManager.Get("settings.updaterepo") : DefaultRepo;
 
         public static void Start()
         {

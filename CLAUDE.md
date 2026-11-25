@@ -142,4 +142,8 @@ Geliştirme bilgisayarı 180 Hz ekranlı bir dizüstü (16 çekirdek); yüksek H
 
 ## Açık konular
 - CPU hâlâ bir çekirdeğin ~%8–22'si (SkiaSharp CPU raster + WPF layered window). Daha da düşürmek için: sadece değişince çizmek (dirty flag) veya GPU'lu SKGLElement'e geçmek.
-- Kod `gelistirme` dalında yerel olarak commit'li (1.3.0). Kendi GitHub depomuz yok; `origin` hâlâ FlorianButz/DynamicWin, oraya push etme. Otomatik güncelleme için kendi depo gerekir.
+- **GitHub:** https://github.com/grkm2802/DynamicWin (herkese açık). Yerel `gelistirme` dalı → uzak `main`.
+  - `origin` = kendi depomuz, `upstream` = FlorianButz/DynamicWin. Upstream'e push etme, oradan da çekme (main/V2'de kod silinmiş).
+  - Commit kimliği: repo-yerel `grkm2802 <168774835+grkm2802@users.noreply.github.com>`. Kullanıcının gerçek e-postası herkese açık depoya girmesin.
+- **Sürüm yayınlama:** sürümü iki yerde artır (App.xaml.cs + csproj) → `installer/build-release.ps1` → commit + push → `gh release create v<sürüm> installer/out/DynamicWin-<sürüm>.zip -R grkm2802/DynamicWin`.
+- `UpdateChecker.DefaultRepo = "grkm2802/DynamicWin"`. Uygulama açılıştan 30 sn sonra ve günde bir son release'e bakar (tag `v1.3.0` biçimi).
