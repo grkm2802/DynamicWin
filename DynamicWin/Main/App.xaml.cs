@@ -16,7 +16,7 @@ namespace DynamicWin
         public static MMDevice defaultDevice;
         public static MMDevice defaultMicrophone;
 
-        public static string Version => "1.3.1";
+        public static string Version => "1.4.0";
 
         [STAThread]
         public static void Main()
@@ -90,6 +90,7 @@ namespace DynamicWin
             NotificationWatcher.Start();
             BluetoothWatcher.Start();
             PowerWatcher.Start();
+            AudioService.Start();
             SystemStateWatcher.Start();
             UpdateChecker.Start();
 

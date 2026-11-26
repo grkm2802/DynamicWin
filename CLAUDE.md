@@ -94,6 +94,15 @@ dotnet build DynamicWin.sln -c Release
 - Tarayıcı kartı "YouTube" diye etiketli ama tarayıcıdaki her medyayı (Netflix vb.) gösterir. GSMTC sekme/site bilgisi vermiyor.
 - Ekranda tıklama testi: imleci (960,18)'e götür, sonra hedefe; `mouse_event` ile tıkla; imleci geri koy.
 
+## Ses kontrolü (1.4.0, kullanıcı isteği)
+- `Utils/AudioService.cs`: ses seviyesi/sessiz (bildirimle önbellek), çıkış cihazı listesi, varsayılan çıkışı değiştirme.
+  - Varsayılan değiştirme belgelenmemiş `IPolicyConfig` (CPolicyConfigClient) ile üç rol için yapılır.
+  - `IMMNotificationClient` cihaz eklenip çıkınca ve varsayılan değişince UI thread'ine aktarır.
+  - Varsayılan değişince `DynamicWinMain.defaultDevice` güncellenir. Böylece V1 ses göstergesi ve `SystemStateWatcher` sessiz uyarısı yeni cihazı izler.
+  - `AudioVisualizer` loopback'i hâlâ açılıştaki cihazda kalır (bilinen eksik).
+- `UI/Widgets/Big/SoundWidget.cs`: "Ses" kutusu (412 genişlik). İçinde sessiz düğmesi, sürüklenebilir kaydırıcı (%1 adım), en fazla 6 çıkış cihazı. Tıklanan cihaz varsayılan olur.
+- Test edildi: sessiz aç/kapa, Realtek ↔ Logitech G733 geçişi (Windows varsayılanı doğrulandı).
+
 ## Sürüm ve kurulum (#19)
 - Sürüm iki yerde: `Main/App.xaml.cs` `Version` ve csproj `<Version>`. İkisini birlikte değiştir.
 - `installer/build-release.ps1` → `installer/out/DynamicWin-<sürüm>.zip` (~85 MB).

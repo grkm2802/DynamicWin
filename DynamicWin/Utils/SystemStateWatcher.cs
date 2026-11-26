@@ -43,6 +43,8 @@ namespace DynamicWin.Utils
 
             // #22
             HookMute(DynamicWinMain.defaultDevice, isMic: false);
+            // Çıkış cihazı değişince sessiz uyarısı yeni cihazı izlesin.
+            AudioService.DefaultChanged += d => HookMute(d, isMic: false);
             HookMute(DynamicWinMain.defaultMicrophone, isMic: true);
 
             // #23, #24: kayıt defteri yoklaması (2 sn)

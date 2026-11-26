@@ -154,6 +154,7 @@ namespace DynamicWin.Main
                 "DynamicWin.UI.Widgets.Big.RegisterNoteWidget");
             SplitMediaWidgetOnce();
             MoveNetSpeedToTileOnce();
+            AddWidgetOnce("settings.widgetsadded.v5.sound", bigWidgets, "DynamicWin.UI.Widgets.Big.RegisterSoundWidget");
         }
 
         // Tek "Medya" kartı yerine Spotify ve YouTube ayrı kartlar (ikisi aynı anda çalabilir). Bir kez yapılır.
