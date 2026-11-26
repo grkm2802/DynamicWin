@@ -16,7 +16,7 @@ namespace DynamicWin
         public static MMDevice defaultDevice;
         public static MMDevice defaultMicrophone;
 
-        public static string Version => "1.3.0";
+        public static string Version => "1.3.1";
 
         [STAThread]
         public static void Main()

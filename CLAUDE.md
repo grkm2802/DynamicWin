@@ -104,7 +104,12 @@ dotnet build DynamicWin.sln -c Release
   - `~/.claude` varsa Claude hook'larını sorarak `settings.json`'a birleştirir (yedek alır, var olanları korur).
   - Test parametreleri: `-InstallDir x -NoShortcuts -NoStart -NoClaude`.
 - `uninstall.ps1` ayarları korur (`-RemoveSettings` ile siler).
-- Yeni kurulumda `RunOnStartup` varsayılan olarak açık. Başlangıç kısayolunu uygulama kendisi yönetir; Inno'da ayrıca kısayol yok.
+- Yeni kurulumda `RunOnStartup` varsayılan olarak açık.
+- **Açılışta başlatma (1.3.1):** `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` → `DynamicWin`.
+  - Eski Başlangıç klasörü `.lnk`'i her açılışta yeniden yazılıyordu, Windows'un okumasıyla çakışıp açılışta çalışmıyordu. Uygulama eski kısayolu kendisi siler.
+  - `bin\Debug` veya `bin\Release`'ten çalışan geliştirme derlemeleri Run kaydına dokunmaz.
+  - Bu bilgisayarda kurulu kopya: `%LOCALAPPDATA%\Programs\DynamicWin` (açılışta bu çalışır).
+- **Geliştirirken:** önce kurulu kopyayı kapat (tek örnek mutex'i), test için `bin\Release` exe'sini çalıştır. Bittiğinde kurulu kopyayı geri aç, ya da yeni paketi `install.ps1 -NoClaude` ile kur.
 - Kurulum, çalışan DynamicWin'i kapatır (dosya kilidi). Testten sonra geliştirme sürümünü yeniden başlat. Başlangıç kısayolu en son çalışan exe'yi gösterir.
 - `.ps1` dosyaları **BOM'lu UTF-8** olmalı. Windows PowerShell 5.1 BOM'suz dosyada Türkçe karakterleri bozar.
 - Otomatik güncelleme için kullanıcının kendi GitHub deposu ve release'ler gerekiyor, henüz yok.

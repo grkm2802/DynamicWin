@@ -1,60 +1,62 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 
 namespace DynamicWin.Utils
 {
-
+    /// <summary>
+    /// Windows açılışında başlatma. Eskiden Başlangıç klasörüne .lnk yazılıyordu; uygulama her açılışta kısayolu
+    /// yeniden yazdığı için Windows'un açılışta okumasıyla çakışabiliyor ("dosya bulunamadı") ve kısayol en son
+    /// çalışan exe'yi (geliştirme klasörünü de) gösteriyordu. Artık HKCU\...\Run kaydı kullanılır (Görev Yöneticisi
+    /// › Başlangıç'ta görünür) ve geliştirme derlemeleri (bin\Debug, bin\Release) bu kayda dokunmaz.
+    /// Metot adları eski çağıranlar için korunmuştur.
+    /// </summary>
     public class StartupShortcutManager
     {
-        private static string GetStartupFolderPath()
+        const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+        const string ValueName = "DynamicWin";
+
+        static string ExePath => Process.GetCurrentProcess().MainModule!.FileName!;
+
+        /// <summary>Geliştirme çıktısından mı çalışıyoruz? O zaman başlangıç ayarını değiştirme.</summary>
+        static bool IsDevBuild
         {
-            return Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+            get
+            {
+                var p = ExePath.Replace('/', '\\');
+                return p.Contains(@"\bin\Debug\", StringComparison.OrdinalIgnoreCase)
+                    || p.Contains(@"\bin\Release\", StringComparison.OrdinalIgnoreCase);
+            }
         }
 
-        private static string GetShortcutPath(string shortcutName)
-        {
-            return Path.Combine(GetStartupFolderPath(), $"{shortcutName}.lnk");
-        }
+        static string LegacyShortcutPath =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "DynamicWin.exe.lnk");
 
         public static void CreateShortcut()
         {
-            string appPath = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
-            string shortcutPath = GetShortcutPath(appPath);
+            if (IsDevBuild) return;
 
-            // Kısayol varsa bile yeniden yaz: derleme çıktı klasörü değişince (ör. hedef platform
-            // güncellemesi) eski kısayol artık olmayan bir exe'yi gösterir.
-            string exePath = Process.GetCurrentProcess().MainModule.FileName;
+            string value = $"\"{ExePath}\"";
+            using var key = Registry.CurrentUser.CreateSubKey(RunKey);
+            if (key.GetValue(ValueName) as string != value)
+                key.SetValue(ValueName, value);
 
-            // WScript.Shell geç bağlama (late binding) ile kullanılıyor; COMReference
-            // .NET SDK'nın dotnet build'inde desteklenmediği için kaldırıldı.
-            Type shellType = Type.GetTypeFromProgID("WScript.Shell")!;
-            dynamic wshShell = Activator.CreateInstance(shellType)!;
-            dynamic shortcut = wshShell.CreateShortcut(shortcutPath);
-            shortcut.TargetPath = exePath;
-            shortcut.WorkingDirectory = Path.GetDirectoryName(exePath);
-            shortcut.Description = "Launches the app on system startup.";
-            shortcut.Save();
-
-            Console.WriteLine("Shortcut created successfully.");
+            // Eski yöntemden kalan Başlangıç klasörü kısayolunu temizle (çift başlatma olmasın).
+            try { if (File.Exists(LegacyShortcutPath)) File.Delete(LegacyShortcutPath); } catch { }
         }
 
         public static bool RemoveShortcut()
         {
-            string appPath = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
-            string shortcutPath = GetShortcutPath(appPath);
+            if (IsDevBuild) return false;
 
-            if (System.IO.File.Exists(shortcutPath))
+            bool removed = false;
+            using (var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true))
             {
-                System.IO.File.Delete(shortcutPath);
-                Console.WriteLine("Shortcut removed successfully.");
-                return true;
+                if (key?.GetValue(ValueName) != null) { key.DeleteValue(ValueName); removed = true; }
             }
-
-            Console.WriteLine("Shortcut does not exist.");
-            return false;
+            try { if (File.Exists(LegacyShortcutPath)) { File.Delete(LegacyShortcutPath); removed = true; } } catch { }
+            return removed;
         }
     }
-
 }
