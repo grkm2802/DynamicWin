@@ -103,6 +103,26 @@ dotnet build DynamicWin.sln -c Release
 - `UI/Widgets/Big/SoundWidget.cs`: "Ses" kutusu (412 genişlik). İçinde sessiz düğmesi, sürüklenebilir kaydırıcı (%1 adım), en fazla 6 çıkış cihazı. Tıklanan cihaz varsayılan olur.
 - Test edildi: sessiz aç/kapa, Realtek ↔ Logitech G733 geçişi (Windows varsayılanı doğrulandı).
 
+## ÖNEMLİ: Claude masaüstü uygulamasının paket ortamı (27.11.2026)
+- Claude masaüstü uygulaması MSIX paketi olarak çalışır. **Claude'un açtığı kabuktan başlatılan her süreç bu paket ortamının içindedir**:
+  - `%APPDATA%`, `%LOCALAPPDATA%` (Temp dahil) ve `HKCU` yazmaları gerçek yere değil `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\...` kopyasına gider.
+  - Aynı ortamdan okuyunca da o kopya görünür. Gerçek durum görünmez.
+- Sonuçları:
+  - Buradan çalıştırılan `install.ps1` Run kaydını, Başlangıç/Başlat menüsü kısayollarını ve kaldırma kaydını **gerçek Windows'a yazmaz**. "Açılışta başlamıyor" hatasının kaynağı buydu.
+  - Buradan başlatılan DynamicWin, Claude'un alt sürecidir. Claude kapanınca ya da güncellenince kayıt bırakmadan ölür.
+  - Geliştirme testleri (bin\Release) sanal ayarları kullanır, kullanıcının gerçek kurulumu ayrı ayarları kullanır.
+- Kurulumu ya da güncellemeyi **kullanıcı kendisi** yapmalı (Gezgin'den çift tıklama):
+  - Masaüstündeki `DynamicWin-Kur.cmd` → `installer/out/kurulum_disari.ps1`: sanal ayarları gerçek AppData'ya taşır, zip'i kurar, sonucu `installer/out/sonuc.txt`'ye yazar.
+  - Zamanlanmış görevle ortam dışına çıkmak Claude'un güvenlik denetimince engellendi, bu yola gitme.
+- Masaüstü (OneDrive\Desktop) ve kullanıcı klasöründeki `.claude` sanallaştırılmaz. Ortak dosyalar için oraları kullan.
+- Uygulama tarafı (1.4.2):
+  - Açılışta `UpdateStartup` sadece kaydı oluşturur, asla silmez. Silme yalnızca Ayarlar'da kapatınca olur.
+  - `install.ps1` Run kaydını kendisi yazar ve ayardaki `runonstartup`'ı açar.
+  - `%AppData%\DynamicWin\log.txt` açılış/kapanış/uyku/kilit/hataları yazar.
+  - `RegisterApplicationRestart` ile Windows çökme sonrası yeniden başlatır.
+  - Kilit açılınca çalışan "DynamicWin" zamanlanmış görevi var.
+  - İkinci kopya sessizce çıkar.
+
 ## Sürüm ve kurulum (#19)
 - Sürüm iki yerde: `Main/App.xaml.cs` `Version` ve csproj `<Version>`. İkisini birlikte değiştir.
 - `installer/build-release.ps1` → `installer/out/DynamicWin-<sürüm>.zip` (~85 MB).
