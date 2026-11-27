@@ -48,7 +48,7 @@ namespace DynamicWin.UI.Menu.Menus
             Settings.SystemPopups = systemPopups.IsChecked;
             Settings.ScreenshotPreview = screenshotPreview.IsChecked;
 
-            DynamicWinMain.UpdateStartup();
+            DynamicWinMain.UpdateStartup(userChanged: true);
 
             if (changedTheme)
                 Theme.Instance.UpdateTheme(true);

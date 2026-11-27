@@ -8,6 +8,7 @@ Start-Sleep -Milliseconds 500
 Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'DynamicWin.lnk') -ErrorAction SilentlyContinue
 Remove-Item (Join-Path ([Environment]::GetFolderPath('Startup')) 'DynamicWin.exe.lnk') -ErrorAction SilentlyContinue
 Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name DynamicWin -ErrorAction SilentlyContinue
+schtasks.exe /Delete /TN DynamicWin /F 2>$null | Out-Null
 Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DynamicWin' -Recurse -ErrorAction SilentlyContinue
 if ($RemoveSettings) { Remove-Item (Join-Path $env:APPDATA 'DynamicWin') -Recurse -Force -ErrorAction SilentlyContinue }
 

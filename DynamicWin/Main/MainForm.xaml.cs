@@ -103,6 +103,7 @@ namespace DynamicWin.Main
             _trayIcon.ContextMenuStrip.Items.Add(L.T("Exit", "Çıkış"), null, (x, y) =>
             {
                 SaveManager.SaveAll();
+                Log.Write("Kullanıcı tepsi menüsünden çıktı.");
                 Process.GetCurrentProcess().Kill();
             });
 

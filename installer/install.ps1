@@ -50,6 +50,19 @@ if (-not $NoShortcuts) {
     Set-ItemProperty $key NoRepair 1 -Type DWord
 }
 
+# Açılışta başlat: kaydı kurulum kendisi yazar (uygulamaya bırakmaz) ve ayar dosyasında da açık yapar.
+if (-not $NoShortcuts) {
+    New-Item -Force 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue | Out-Null
+    Set-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' DynamicWin "`"$exe`""
+    Remove-Item (Join-Path ([Environment]::GetFolderPath('Startup')) 'DynamicWin.exe.lnk') -ErrorAction SilentlyContinue
+    $settingsFile = Join-Path $env:APPDATA 'DynamicWin\Settings.json'
+    if (Test-Path $settingsFile) {
+        $txt = [System.IO.File]::ReadAllText($settingsFile)
+        $txt = $txt -replace '"settings\.runonstartup":\s*false', '"settings.runonstartup": true'
+        [System.IO.File]::WriteAllText($settingsFile, $txt, (New-Object System.Text.UTF8Encoding($false)))
+    }
+}
+
 Write-Host "DynamicWin kuruldu: $InstallDir"
 
 # ---- Claude Code bağlantısı (isteğe bağlı) ----

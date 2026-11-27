@@ -16,7 +16,7 @@ namespace DynamicWin
         public static MMDevice defaultDevice;
         public static MMDevice defaultMicrophone;
 
-        public static string Version => "1.4.0";
+        public static string Version => "1.4.2";
 
         [STAThread]
         public static void Main()
@@ -25,7 +25,12 @@ namespace DynamicWin
             m.Run();
         }
 
-        public static void UpdateStartup()
+        /// <param name="userChanged">
+        /// true: kullanıcı Ayarlar'da değiştirdi → kapalıysa başlangıç kaydını sil.
+        /// false (uygulama açılışı): sadece açıksa kaydı oluştur/güncelle, ASLA silme. Eskiden açılışta "kapalı"
+        /// görünen bir ayar (ör. kurulumdan önce oluşmuş ayar dosyası) kurulumun yazdığı başlangıç kaydını siliyordu.
+        /// </param>
+        public static void UpdateStartup(bool userChanged = false)
         {
             try
             {
@@ -33,15 +38,14 @@ namespace DynamicWin
                 {
                     StartupShortcutManager.CreateShortcut();
                 }
-                else
+                else if (userChanged)
                 {
                     StartupShortcutManager.RemoveShortcut();
                 }
             }
             catch (Exception ex)
             {
-                // Handle exceptions here
-                MessageBox.Show($"Failed to add application to startup: {ex.Message}");
+                Log.Error("Açılışta başlatma ayarı", ex);
             }
         }
 
@@ -55,16 +59,27 @@ namespace DynamicWin
             // Handle unhandled exceptions
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             Dispatcher.UnhandledException += Dispatcher_UnhandledException;
+            TaskScheduler.UnobservedTaskException += (_, ev) => { Log.Error("Task", ev.Exception); ev.SetObserved(); };
 
             bool result;
             mutex = new System.Threading.Mutex(true, "FlorianButz.DynamicWin", out result);
 
             if (!result)
             {
-                ErrorForm errorForm = new ErrorForm();
-                errorForm.Show();
+                // Zaten çalışıyor: sessizce çık. Kilit açılınca çalışan zamanlanmış görev ve açılış kaydı aynı anda
+                // tetiklenebilir; eskiden burada "Only one instance" hata kutusu çıkıyordu.
+                Log.Write("İkinci kopya başlatılmak istendi, zaten çalışıyor; çıkılıyor.");
+                Shutdown();
                 return;
             }
+
+            Log.Write($"Başladı: sürüm {Version}, {Environment.ProcessPath}");
+            Microsoft.Win32.SystemEvents.PowerModeChanged += (_, ev) => Log.Write("Güç: " + ev.Mode);
+            Microsoft.Win32.SystemEvents.SessionSwitch += (_, ev) => Log.Write("Oturum: " + ev.Reason);
+            Microsoft.Win32.SystemEvents.SessionEnding += (_, ev) => Log.Write("Oturum kapanıyor: " + ev.Reason);
+
+            // Windows çökme/donma sonrası uygulamayı yeniden başlatsın (en az 60 sn çalışmış olmalı).
+            try { RegisterApplicationRestart(null, 0); } catch { }
 
             //SetHighPriority();
 
@@ -109,6 +124,8 @@ namespace DynamicWin
         protected override void OnExit(ExitEventArgs e)
         {
             base.OnExit(e);
+            Log.Write($"Kapandı (OnExit, kod {e.ApplicationExitCode})");
+            if (MainForm.Instance == null) return; // ikinci kopya: başlatılmadı
 
             SaveManager.SaveAll();
             HardwareMonitor.Stop();
@@ -122,14 +139,21 @@ namespace DynamicWin
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            MessageBox.Show($"Unhandled exception: {e.ExceptionObject}");
+            Log.Error("AppDomain, sonlanıyor=" + e.IsTerminating, e.ExceptionObject);
         }
+
+        static int dispatcherErrors;
 
         private void Dispatcher_UnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
         {
-            MessageBox.Show($"Unhandled exception: {e.Exception}");
-            e.Handled = true; // Prevent the application from terminating
+            // Uygulama devam etsin; hatayı kaydet. Render döngüsündeki bir hata her karede tekrarlanabileceği için
+            // eskisi gibi her seferinde hata kutusu açılmaz, sadece ilk 20 kayıt yazılır.
+            e.Handled = true;
+            if (++dispatcherErrors <= 20) Log.Error("UI", e.Exception);
         }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern int RegisterApplicationRestart(string? commandLine, int flags);
 
 
         private static readonly DateTime Jan1st1970 = new DateTime
