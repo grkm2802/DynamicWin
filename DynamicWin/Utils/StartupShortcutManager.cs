@@ -53,6 +53,25 @@ namespace DynamicWin.Utils
             else Task.Run(CreateUnlockTask);
         }
 
+        /// <summary>
+        /// Sistemde gerçekten bir başlangıç kaydı (görev veya Run değeri) var mı? Ayar dosyası ile gerçek durum
+        /// kopabildiği için (bkz. CLAUDE.md "paket ortamı") "açılışta başlat" ayarı açılışta buradan okunur.
+        /// </summary>
+        public static bool IsRegistered()
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.OpenSubKey(RunKey))
+                    if (key?.GetValue(ValueName) != null) return true;
+                var psi = new ProcessStartInfo("schtasks.exe", $"/Query /TN \"{TaskName}\"") { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+                using var p = Process.Start(psi)!;
+                p.StandardOutput.ReadToEnd(); p.StandardError.ReadToEnd();
+                p.WaitForExit(5000);
+                return p.ExitCode == 0;
+            }
+            catch { return false; }
+        }
+
         public static bool RemoveShortcut()
         {
             if (IsDevBuild) return false;
@@ -91,8 +110,9 @@ namespace DynamicWin.Utils
                 string esc(string x) => System.Security.SecurityElement.Escape(x)!;
                 string xml = $@"<?xml version=""1.0"" encoding=""UTF-16""?>
 <Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">
-  <RegistrationInfo><Description>DynamicWin: kilit açılınca çalışmıyorsa başlat</Description></RegistrationInfo>
+  <RegistrationInfo><Description>DynamicWin: oturum açılınca ve kilit açılınca (çalışmıyorsa) başlat</Description></RegistrationInfo>
   <Triggers>
+    <LogonTrigger><Enabled>true</Enabled><UserId>{esc(user)}</UserId></LogonTrigger>
     <SessionStateChangeTrigger><Enabled>true</Enabled><StateChange>SessionUnlock</StateChange><UserId>{esc(user)}</UserId></SessionStateChangeTrigger>
   </Triggers>
   <Principals><Principal id=""Author""><UserId>{esc(user)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>

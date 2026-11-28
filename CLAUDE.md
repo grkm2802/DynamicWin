@@ -111,16 +111,21 @@ dotnet build DynamicWin.sln -c Release
   - Buradan çalıştırılan `install.ps1` Run kaydını, Başlangıç/Başlat menüsü kısayollarını ve kaldırma kaydını **gerçek Windows'a yazmaz**. "Açılışta başlamıyor" hatasının kaynağı buydu.
   - Buradan başlatılan DynamicWin, Claude'un alt sürecidir. Claude kapanınca ya da güncellenince kayıt bırakmadan ölür.
   - Geliştirme testleri (bin\Release) sanal ayarları kullanır, kullanıcının gerçek kurulumu ayrı ayarları kullanır.
-- Kurulumu ya da güncellemeyi **kullanıcı kendisi** yapmalı (Gezgin'den çift tıklama):
-  - Masaüstündeki `DynamicWin-Kur.cmd` → `installer/out/kurulum_disari.ps1`: sanal ayarları gerçek AppData'ya taşır, zip'i kurar, sonucu `installer/out/sonuc.txt`'ye yazar.
-  - Zamanlanmış görevle ortam dışına çıkmak Claude'un güvenlik denetimince engellendi, bu yola gitme.
+- Test (28.11.2026): `%LOCALAPPDATA%\Programs` **gerçek** yere yazılıyor. `%APPDATA%\Roaming` (ayarlar, Başlangıç klasörü, Başlat menüsü) ve HKCU (Run, Uninstall) sanal. Görev Zamanlayıcı (schtasks) gerçek, hizmet olduğu için sanallaştırılmaz.
+- **Bu bilgisayarda çalışan çözüm:**
+  1. Yeni sürümü `installer/out/publish`'ten `%LOCALAPPDATA%\Programs\DynamicWin`'e kopyala (`robocopy /E`), önce DynamicWin'i kapat.
+  2. "DynamicWin" zamanlanmış görevi (LogonTrigger + SessionUnlock) o exe'yi başlatır. `schtasks /Run /TN DynamicWin` ile hemen başlatılabilir.
+  3. Görevin başlattığı süreç Claude dışındadır (üst süreç svchost). Gerçek ayar ve kayıt defterine yazar, Run kaydını da oluşturur.
+- Kullanıcıya .cmd çalıştırma adımı bırakma. Claude uygulamasındaki dosya bağlantısı .cmd'yi çalıştırmıyor, sadece görüntülüyor. Önceki deneme bu yüzden işe yaramadı.
+- Zamanlanmış görevle **kurulum betiği** çalıştırmak Claude'un güvenlik denetimince engellendi. Görevle uygulamanın kendisini başlatmak (kullanıcının istediği otomatik başlatma) sorun olmadı.
 - Masaüstü (OneDrive\Desktop) ve kullanıcı klasöründeki `.claude` sanallaştırılmaz. Ortak dosyalar için oraları kullan.
-- Uygulama tarafı (1.4.2):
+- Uygulama tarafı (1.4.2–1.4.3):
   - Açılışta `UpdateStartup` sadece kaydı oluşturur, asla silmez. Silme yalnızca Ayarlar'da kapatınca olur.
   - `install.ps1` Run kaydını kendisi yazar ve ayardaki `runonstartup`'ı açar.
   - `%AppData%\DynamicWin\log.txt` açılış/kapanış/uyku/kilit/hataları yazar.
   - `RegisterApplicationRestart` ile Windows çökme sonrası yeniden başlatır.
-  - Kilit açılınca çalışan "DynamicWin" zamanlanmış görevi var.
+  - "DynamicWin" zamanlanmış görevi oturum açılışında ve kilit açılışında başlatır (1.4.3).
+  - 1.4.3'ten itibaren "açılışta başlat" ayarı açılışta gerçek durumdan okunur: görev veya Run kaydı varsa ayar açılır (`StartupShortcutManager.IsRegistered`).
   - İkinci kopya sessizce çıkar.
 
 ## Sürüm ve kurulum (#19)

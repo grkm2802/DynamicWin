@@ -16,7 +16,7 @@ namespace DynamicWin
         public static MMDevice defaultDevice;
         public static MMDevice defaultMicrophone;
 
-        public static string Version => "1.4.2";
+        public static string Version => "1.4.3";
 
         [STAThread]
         public static void Main()
@@ -34,6 +34,14 @@ namespace DynamicWin
         {
             try
             {
+                // Açılışta: sistemde gerçek bir başlangıç kaydı varsa ayarı ona uydur (ayar dosyası eskimiş olabilir).
+                if (!userChanged && !Settings.RunOnStartup && StartupShortcutManager.IsRegistered())
+                {
+                    Settings.RunOnStartup = true;
+                    Settings.Save();
+                    Log.Write("Başlangıç kaydı bulundu; 'açılışta başlat' ayarı açıldı.");
+                }
+
                 if (Settings.RunOnStartup)
                 {
                     StartupShortcutManager.CreateShortcut();
